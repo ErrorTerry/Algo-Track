@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Baekjoon Helper",
+  "version": "1.0.0",
+  "description": "백준 페이지 오른쪽 절반에 학습 도우미 패널을 띄워줘요.",
+  "icons": {
+
+  },
+  "permissions": ["storage"],
+  "host_permissions": ["*://www.acmicpc.net/*"],
+  "content_scripts": [
+    {
+      "matches": ["*://www.acmicpc.net/*"],
+      "js": ["content/content.js"],
+      "css": ["content/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["dist/react-panel.js", "dist/react-panel.css"],
+      "matches": ["*://www.acmicpc.net/*"]
+    }
+  ],
+  "action": {
+    "default_title": "Baekjoon Helper"
+  }
+}
