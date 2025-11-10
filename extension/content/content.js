@@ -118,12 +118,16 @@
             if (btn.parentElement !== document.body) document.body.appendChild(btn);
         }
     };
-    btn.addEventListener("click", () => setOpen(!panel.classList.contains("open")));
+    btn.addEventListener("click", () =>
+        setOpen(!panel.classList.contains("open"))
+    );
 
     // =========================
     // 4) 드래그 리사이즈
     // =========================
-    let dragging = false, startX = 0, startWidthPx = 0;
+    let dragging = false,
+        startX = 0,
+        startWidthPx = 0;
     const px = (v) => `${Math.round(v)}px`;
     const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
     const getPanelWidthPx = () => panel.getBoundingClientRect().width;
@@ -132,8 +136,10 @@
         const minStr = cs.getPropertyValue("--bj-panel-min").trim() || "320px";
         const maxStr = cs.getPropertyValue("--bj-panel-max").trim() || "90vw";
         const toPx = (s) =>
-            s.endsWith("vw") ? (parseFloat(s)/100)*window.innerWidth
-                : s.endsWith("px") ? parseFloat(s)
+            s.endsWith("vw")
+                ? (parseFloat(s) / 100) * window.innerWidth
+                : s.endsWith("px")
+                    ? parseFloat(s)
                     : parseFloat(s) || 320;
         return { min: toPx(minStr), max: toPx(maxStr) };
     };
@@ -170,7 +176,9 @@
     const moduleUrl = chrome.runtime.getURL("dist/react-panel.js");
     import(moduleUrl)
         .then(() => console.log("[BJ-Helper] panel module loaded"))
-        .catch((e) => console.error("[BJ-Helper] panel module load failed", e, moduleUrl));
+        .catch((e) =>
+            console.error("[BJ-Helper] panel module load failed", e, moduleUrl)
+        );
 
     // =========================
     // 6) 제출 결과 감지(옵션)
@@ -178,9 +186,191 @@
     try {
         const observer = new MutationObserver(() => {
             if (document.body && document.body.innerText.includes("맞았습니다!!")) {
-                chrome.runtime.sendMessage({ type: "SUBMIT_RESULT", verdict: "AC", at: Date.now() });
+                chrome.runtime.sendMessage({
+                    type: "SUBMIT_RESULT",
+                    verdict: "AC",
+                    at: Date.now(),
+                });
             }
         });
         observer.observe(document.body, { childList: true, subtree: true });
     } catch (_) {}
+
+    // ======================================================================
+    // 7) ★ 백준 예제 입/출력 파싱 + 이벤트 발사 (이 파일 안에서 전부 처리)
+    // ======================================================================
+    const normalizePreText = (t) =>
+        (t || "")
+            .replace(/\u00A0/g, " ")
+            .replace(/\r\n?/g, "\n")
+            .replace(/\s+$/g, "");
+
+    const extractIndex = (label) => {
+        const m = (label || "").match(/(\d+)\s*$/);
+        return m ? Number(m[1]) : undefined;
+    };
+
+    const getProblemMeta = () => {
+        let problemId, problemTitle;
+        const m = location.pathname.match(/\/problem\/(\d+)/);
+        if (m) problemId = m[1];
+        const idTitle = document.querySelector("#problem_title");
+        if (idTitle && idTitle.innerText && idTitle.innerText.trim()) {
+            problemTitle = idTitle.innerText.trim();
+        } else {
+            const h = document.querySelector("h1, h2");
+            if (h && h.textContent && h.textContent.trim())
+                problemTitle = h.textContent.trim();
+        }
+        return { problemId, problemTitle };
+    };
+
+    const extractSamplesFromDOM = () => {
+        const inputBlocks = new Map();
+        const outputBlocks = new Map();
+
+        // A) id 기반 (#sample-input-1, #sample-output-1) — pre 자체가 id일 수 있음
+        document
+            .querySelectorAll('[id^="sample-input"], [id^="sample-output"]')
+            .forEach((node) => {
+                const isInput = node.id.startsWith("sample-input");
+                const pre =
+                    (node.matches("pre, code, textarea") ? node : null) ||
+                    node.querySelector("pre, code, textarea");
+                const text = normalizePreText(
+                    (pre && (pre.innerText || pre.textContent)) || ""
+                );
+
+                const ownLabel =
+                    (node.querySelector("h4, h3, .headline, .sample-title") &&
+                        node
+                            .querySelector("h4, h3, .headline, .sample-title")
+                            .textContent.trim()) ||
+                    node.getAttribute("aria-label") ||
+                    node.id;
+
+                const siblingHeading =
+                    (node.previousElementSibling &&
+                        node.previousElementSibling.textContent &&
+                        node.previousElementSibling.textContent.trim()) ||
+                    (node.parentElement &&
+                        node.parentElement.querySelector("h4, h3, .headline, .sample-title") &&
+                        node.parentElement
+                            .querySelector("h4, h3, .headline, .sample-title")
+                            .textContent.trim());
+
+                const label =
+                    ownLabel || siblingHeading || (isInput ? "예제 입력" : "예제 출력");
+                const idx = extractIndex(label) ?? extractIndex(node.id) ?? 1;
+
+                if (text) {
+                    if (isInput) inputBlocks.set(idx, { label, text });
+                    else outputBlocks.set(idx, { label, text });
+                }
+            });
+
+        // B) 헤딩 기반 보조 수집
+        if (inputBlocks.size === 0 && outputBlocks.size === 0) {
+            const headings = Array.from(
+                document.querySelectorAll(
+                    "h2, h3, h4, .problem-section-title, .sample-title, .section-title"
+                )
+            );
+            const isInputLabel = (s) => /예제\s*입력|sample\s*input/i.test(s);
+            const isOutputLabel = (s) => /예제\s*출력|sample\s*output/i.test(s);
+
+            headings.forEach((h) => {
+                const label = (h.textContent || "").trim();
+                const idx = extractIndex(label) ?? 1;
+                const preCandidate =
+                    (h.nextElementSibling &&
+                        h.nextElementSibling.querySelector("pre, code, textarea")) ||
+                    (h.parentElement &&
+                        h.parentElement.querySelector("pre, code, textarea"));
+                const text = normalizePreText(
+                    (preCandidate && preCandidate.textContent) || ""
+                );
+                if (!text) return;
+                if (isInputLabel(label)) inputBlocks.set(idx, { label, text });
+                if (isOutputLabel(label)) outputBlocks.set(idx, { label, text });
+            });
+        }
+
+        // C) 페어링
+        const indices = Array.from(
+            new Set([...inputBlocks.keys(), ...outputBlocks.keys()])
+        ).sort((a, b) => a - b);
+        const pairs = indices
+            .map((i) => ({
+                index: i,
+                input: (inputBlocks.get(i) && inputBlocks.get(i).text) || "",
+                output: (outputBlocks.get(i) && outputBlocks.get(i).text) || "",
+                inputLabel:
+                    (inputBlocks.get(i) && inputBlocks.get(i).label) ||
+                    `예제 입력 ${i}`,
+                outputLabel:
+                    (outputBlocks.get(i) && outputBlocks.get(i).label) ||
+                    `예제 출력 ${i}`,
+            }))
+            .filter((p) => p.input || p.output);
+
+        return pairs;
+    };
+
+    let __lastPayload; // 최신 payload 캐시
+
+    const emitSamples = () => {
+        const { problemId, problemTitle } = getProblemMeta();
+        const payload = {
+            problemId,
+            problemTitle,
+            url: location.href,
+            samples: extractSamplesFromDOM(),
+            parsedAt: Date.now(),
+        };
+        __lastPayload = payload;
+
+        // 문서 이벤트 (패널/콘솔에서 받기 쉬움)
+        document.dispatchEvent(
+            new CustomEvent("boj:samples", { detail: payload, bubbles: true })
+        );
+        // postMessage 브릿지 (훅에서 이 경로만 들어도 OK)
+        try {
+            window.postMessage({ type: "BOJ_SAMPLES", payload }, location.origin);
+        } catch {}
+
+        console.log("[BojSamples] emit", {
+            url: payload.url,
+            count: payload.samples.length,
+            problemId: payload.problemId,
+        });
+    };
+
+    // 초기 2회(로드 직후/로드 완료) + DOM 변화 감지 + 네비게이션
+    emitSamples();
+    window.addEventListener("load", () => setTimeout(emitSamples, 50));
+
+    const mo = new MutationObserver(() => {
+        clearTimeout(emitSamples.__t);
+        emitSamples.__t = setTimeout(emitSamples, 120);
+    });
+    mo.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+    });
+
+    window.addEventListener("popstate", emitSamples);
+    window.addEventListener("hashchange", emitSamples);
+
+    // 패널에서 “최신 주세요” 요청 시 재발사
+    window.addEventListener("message", (ev) => {
+        if (ev.origin !== location.origin) return;
+        if (ev.data && ev.data.type === "REQUEST_SAMPLES") {
+            emitSamples();
+        }
+    });
+
+    // 디버그 훅
+    window.__emitBojSamples = emitSamples;
 })();
