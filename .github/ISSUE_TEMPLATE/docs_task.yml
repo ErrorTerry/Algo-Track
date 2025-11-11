@@ -1,0 +1,17 @@
+name: "[Docs] Task"
+description: 문서 작성/정리
+title: "[Docs] "
+labels: ["area:docs", "type:chore", "status:needs-triage"]
+body:
+  - type: textarea
+    id: scope
+    attributes:
+      label: 범위
+      value: |
+        - [ ] README
+        - [ ] ADR(결정 기록)
+        - [ ] API 문서
+  - type: textarea
+    id: notes
+    attributes:
+      label: 비고
