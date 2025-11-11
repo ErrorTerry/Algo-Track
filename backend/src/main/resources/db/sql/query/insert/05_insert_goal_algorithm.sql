@@ -1,0 +1,1 @@
+-- INSERT goal_algorithm SQL
