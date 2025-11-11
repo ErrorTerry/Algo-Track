@@ -1,0 +1,26 @@
+name: "[Fullstack] Task"
+description: 프론트+백엔드 연동/공통 작업
+title: "[Fullstack] "
+labels: ["area:fullstack", "status:needs-triage"]
+body:
+  - type: textarea
+    id: ctx
+    attributes:
+      label: 배경/맥락
+  - type: textarea
+    id: todo
+    attributes:
+      label: 해야 할 일
+      value: |
+        ### Frontend
+        - [ ] ...
+
+        ### Backend
+        - [ ] ...
+  - type: textarea
+    id: test
+    attributes:
+      label: 테스트/검증 방법
+      value: |
+        - [ ] 로컬 dev 서버/백엔드 동시 실행
+        - [ ] /api/... 호출 정상 확인
