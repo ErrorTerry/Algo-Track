@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 질문/토론(Discussions)
+    url: https://github.com/<YOUR_ORG>/<YOUR_REPO>/discussions
+    about: 기획/아이디어/질문은 여기로
