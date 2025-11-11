@@ -1,0 +1,29 @@
+name: "[Backend] Feature"
+description: 백엔드 기능 추가/개선
+title: "[Backend] "
+labels: ["area:backend", "type:feature", "status:needs-triage"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: 목표
+      description: 어떤 문제를 해결하려는지 간단히
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 범위/스펙
+      description: API 스펙/모델/권한/성능 고려사항 등
+  - type: textarea
+    id: ac
+    attributes:
+      label: 수용 기준 (AC)
+      value: |
+        - [ ] ...
+        - [ ] ...
+  - type: input
+    id: deps
+    attributes:
+      label: 관련 이슈/PR
+      placeholder: "#123, #456"
