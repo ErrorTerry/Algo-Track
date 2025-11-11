@@ -1,0 +1,41 @@
+name: "[Frontend] Feature"
+description: 프론트엔드 기능 추가/개선
+title: "[Frontend] "
+labels: ["area:frontend", "type:feature", "status:needs-triage"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: 목표
+      description: 어떤 기능을 개발할지, 어떤 문제를 해결하는지 적어주세요.
+      placeholder: 예) 로그인 페이지 UI 제작 / 프로필 편집 기능 추가
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: 세부 내용
+      description: 주요 구성 요소, 화면 설계, 사용자 흐름 등을 적어주세요.
+      placeholder: 예) 버튼 클릭 시 모달 표시, 입력 검증 로직 포함 등
+
+  - type: textarea
+    id: design
+    attributes:
+      label: 디자인 참고 (선택)
+      description: Figma 링크나 참고할 UI 문서를 적어주세요.
+
+  - type: textarea
+    id: ac
+    attributes:
+      label: 완료 기준 (Acceptance Criteria)
+      value: |
+        - [ ] 주요 컴포넌트 구현 완료
+        - [ ] UI 반응형 처리
+        - [ ] 브라우저 테스트 (Chrome, Edge)
+
+  - type: input
+    id: deps
+    attributes:
+      label: 관련 이슈/PR
+      placeholder: "#123, #456"
