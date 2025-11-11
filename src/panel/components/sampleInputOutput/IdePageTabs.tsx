@@ -6,8 +6,9 @@ export default function IdePageTabs() {
     const [activeTab, setActiveTab] = useState("io"); // io = 예제입출력, test = 테스트결과
 
     return (
-        <>
-            <div className="flex space-x-5 mb-4">
+        <div className="w-full h-full flex flex-col min-h-0">
+            {/* 상단 탭 버튼 */}
+            <div className="flex space-x-5 mb-4 shrink-0">
                 <button
                     className={`btn btn-wide min-h-18 gap-4 text-[18px] md:text-[20px] font-semibold ${
                         activeTab === "io" ? "btn-success" : ""
@@ -27,9 +28,11 @@ export default function IdePageTabs() {
                 </button>
             </div>
 
-            {/* 탭에 따라 컴포넌트 표시 */}
-            {activeTab === "io" && <InputOutputTabs />}
-            {activeTab === "test" && <TestResultTabs />}
-        </>
+            {/* 아래 영역 (탭 콘텐츠) */}
+            <div className="flex-1 min-h-0 w-full overflow-hidden">
+                {activeTab === "io" && <InputOutputTabs />}
+                {activeTab === "test" && <TestResultTabs />}
+            </div>
+        </div>
     );
 }

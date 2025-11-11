@@ -21,8 +21,11 @@ export default function Ide() {
             </div>
 
             {/* 아래쪽 예제 입출력 영역 */}
-            <div className="rounded-lg border border-base-300 overflow-hidden">
-                <IdePageTabs />
+            <div className="rounded-lg border border-base-300 h-full flex flex-col overflow-hidden">
+                {/* 높이 계산을 위해 래퍼 한 겹 */}
+                <div className="flex-1 min-h-0">
+                    <IdePageTabs />
+                </div>
             </div>
         </div>
     );
