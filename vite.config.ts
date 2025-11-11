@@ -1,10 +1,14 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import path from "path";
 
 export default defineConfig({
-    base: "",
+    base: "", // OK
     plugins: [react(), tailwindcss()],
+    resolve: {
+        alias: { "@": path.resolve(__dirname, "src") },
+    },
     build: {
         outDir: "extension/dist",
         emptyOutDir: true,
@@ -19,7 +23,5 @@ export default defineConfig({
             },
         },
     },
-    worker: {
-        format: "es", // ★ 워커 ES 모듈
-    },
+    worker: { format: "es" },
 });
