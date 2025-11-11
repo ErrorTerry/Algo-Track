@@ -5,6 +5,7 @@
     { "path": "./tsconfig.node.json" }
   ],
   "compilerOptions": {
-    "lib": ["ES2021", "DOM", "WebWorker"] // WebWorker 추가
+    "lib": ["ES2021", "DOM", "WebWorker"], // WebWorker 추가
+    "types": ["chrome", "vite/client"]
   }
 }
