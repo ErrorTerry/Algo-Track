@@ -1,28 +1,27 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import tailwindcss from '@tailwindcss/vite'
+import tailwindcss from "@tailwindcss/vite";
+import path from "path";
 
 export default defineConfig({
-    plugins: [react(), tailwindcss(),],
+    base: "", // OK
+    plugins: [react(), tailwindcss()],
+    resolve: {
+        alias: { "@": path.resolve(__dirname, "src") },
+    },
     build: {
         outDir: "extension/dist",
         emptyOutDir: true,
+        cssCodeSplit: false,
         rollupOptions: {
-            input: {
-                "react-panel": "src/panel/panelEntry.tsx"
-            },
+            input: { "react-panel": "src/panel/panelEntry.tsx" },
             output: {
-                // 패널 엔트리 파일명을 고정 (content.js에서 고정 경로로 불러옴)
                 entryFileNames: "react-panel.js",
-                // css도 고정 파일명으로
-                assetFileNames: (assetInfo) => {
-                    if (assetInfo.name && assetInfo.name.endsWith(".css")) {
-                        return "react-panel.css";
-                    }
-                    return "assets/[name][extname]";
-                },
-                chunkFileNames: "assets/[name]-[hash].js"
-            }
-        }
-    }
+                chunkFileNames: "assets/[name].js",
+                assetFileNames: (info) =>
+                    info.name?.endsWith(".css") ? "react-panel.css" : "assets/[name][extname]",
+            },
+        },
+    },
+    worker: { format: "es" },
 });

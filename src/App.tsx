@@ -1,42 +1,48 @@
 import "./index.css";
+import { MemoryRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import Navbar from "./panel/components/Navbar";
 import Dictionary from "./panel/pages/Dictionary";
+import Goal from "./panel/pages/Goal";
+import Ide from "./panel/pages/Ide";
+import Statistics from "./panel/pages/Statistics";
+import Login from "./panel/pages/KakaoLogin"; // 로그인 페이지 컴포넌트
 
 export default function App() {
-    // 여기서 라우팅/상태/그래프 등을 구현
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+    // 예시: 로그인 여부를 로컬스토리지에서 불러오기
+    useEffect(() => {
+        const token = localStorage.getItem("authToken");
+        setIsLoggedIn(!!token);
+    }, []);
+
     return (
-        <div style={{height: "100%", display: "flex", flexDirection: "column"}}>
-            <Dictionary />
-            <header style={{
-                padding: "12px 16px",
-                borderBottom: "1px solid #e5e7eb",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                fontWeight: 600
-            }}>
-                <span>백준 헬퍼 📘</span>
-                <small style={{color: "#6b7280"}}>beta</small>
-            </header>
+        <Router>
+            <div className="min-h-screen bg-base-100">
+                {isLoggedIn ? (
+                    <>
+                        {/* 로그인 상태일 때만 네비게이션 표시 */}
+                        <Navbar />
 
-            <main style={{padding: 16, overflow: "auto"}}>
-                <section style={{marginBottom: 16}}>
-                    <h2 style={{fontSize: 14, fontWeight: 700, marginBottom: 8}}>지금 문제</h2>
-                    <p style={{fontSize: 14}}>문제 번호/제목/태그 파싱 영역</p>
-                </section>
-
-                <section style={{marginBottom: 16}}>
-                    <h2 style={{fontSize: 14, fontWeight: 700, marginBottom: 8}}>힌트</h2>
-                    <ul style={{paddingLeft: 18, fontSize: 14, lineHeight: 1.5}}>
-                        <li>입력 크기 보고 O(N log N) 이하로 낮출 수 있는지 확인</li>
-                        <li>예외 케이스를 먼저 정리: 빈 자료구조, 경계 값</li>
-                    </ul>
-                </section>
-
-                <section>
-                    <h2 style={{fontSize: 14, fontWeight: 700, marginBottom: 8}}>목표/통계</h2>
-                    <p style={{fontSize: 14}}>이번 주 2/5 달성 · 레이다 차트 영역</p>
-                </section>
-            </main>
-        </div>
+                        {/* 메인 페이지들 */}
+                        <Routes>
+                            <Route path="/" element={<Ide />} />
+                            <Route path="/ide" element={<Ide />} />
+                            <Route path="/dictionary" element={<Dictionary />} />
+                            <Route path="/goal" element={<Goal />} />
+                            <Route path="/stats" element={<Statistics />} />
+                            {/* 로그인된 상태에서 로그인 페이지로 가려 하면 자동으로 / 로 리다이렉트 */}
+                            <Route path="/login" element={<Navigate to="/" />} />
+                        </Routes>
+                    </>
+                ) : (
+                    // 로그인 안 된 경우 로그인 페이지로 고정
+                    <Routes>
+                        <Route path="*" element={<Login />} />
+                    </Routes>
+                )}
+            </div>
+        </Router>
     );
 }
