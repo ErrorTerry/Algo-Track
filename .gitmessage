@@ -1,0 +1,32 @@
+# 커밋 메시지 템플릿 예시
+# ------------------------------
+# 형식: <type>(<scope>): <subject>
+# 예시:
+# feat(frontend): 로그인 페이지 UI 추가
+# fix(backend): 회원가입 API 응답 오류 수정
+# chore(infra): GitHub Actions 캐시 설정 수정
+#
+# type 종류:
+#   feat     → 새로운 기능
+#   fix      → 버그 수정
+#   refactor → 코드 구조 개선
+#   chore    → 단순 수정/빌드/세팅 관련
+#   docs     → 문서 수정
+#   test     → 테스트 관련
+#   perf     → 성능 개선
+#   ci       → CI/CD 관련 작업
+#
+# scope (영역):
+#   frontend | backend | fullstack | infra | docs
+#
+# ------------------------------
+# 본문(선택): 변경 이유, 상세 설명
+# 푸터(선택): 이슈 연결, BREAKING CHANGE 등
+#
+# 예시:
+# feat(frontend): 문제 풀이 탭 UI 개선
+#
+# - Tailwind 컴포넌트 변경
+# - 반응형 레이아웃 수정
+#
+# Closes #123
