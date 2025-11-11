@@ -1,0 +1,2 @@
+-- DELETE algorithm SQL
+

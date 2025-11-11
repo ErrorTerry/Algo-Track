@@ -1,0 +1,1 @@
+-- DELETE goal_algorithm SQL

@@ -1,0 +1,1 @@
+-- INSERT algorithm_dictionary SQL
