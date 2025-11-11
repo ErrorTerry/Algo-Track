@@ -1,0 +1,1 @@
+-- SELECT goal_algorithm SQL
