@@ -1,0 +1,30 @@
+name: "[Frontend] Bug"
+description: 프론트엔드 버그 제보
+title: "[Frontend] "
+labels: ["area:frontend", "type:bug", "status:needs-triage"]
+body:
+  - type: textarea
+    id: desc
+    attributes:
+      label: 버그 설명
+      description: 기대 동작 vs 실제 동작을 적어주세요.
+      placeholder: 예) 버튼 클릭 시 모달이 열리지 않음
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 재현 단계
+      value: |
+        1. ...
+        2. ...
+        3. ...
+  - type: input
+    id: env
+    attributes:
+      label: 환경
+      placeholder: "브라우저/OS/확장앱 버전"
+  - type: textarea
+    id: etc
+    attributes:
+      label: 스크린샷/로그
