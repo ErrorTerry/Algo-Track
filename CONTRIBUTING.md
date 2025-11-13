@@ -77,7 +77,7 @@ issue/FRONT-123-login-ui  →  dev  →  main (배포 시)
 ## 🧩 3. 커밋 규칙
 
 ```
-<type>(<scope>): <subject> #123>
+<type>(<scope>): <subject> #123
 
 <body: 변경 이유/세부사항>
 ```
