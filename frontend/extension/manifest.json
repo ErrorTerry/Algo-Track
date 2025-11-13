@@ -4,7 +4,10 @@
   "version": "1.0.0",
   "description": "백준 페이지 오른쪽 절반에 학습 도우미 패널을 띄워줘요.",
   "permissions": ["storage"],
-  "host_permissions": ["https://www.acmicpc.net/*"],
+  "host_permissions": [
+    "https://www.acmicpc.net/*",
+    "http://localhost:8080/*"
+  ],
   "content_scripts": [
     {
       "matches": ["https://www.acmicpc.net/*"],
