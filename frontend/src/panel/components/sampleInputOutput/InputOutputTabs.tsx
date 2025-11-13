@@ -37,7 +37,6 @@ export default function InputOutputTabs() {
         };
         window.addEventListener("message", onMsg);
 
-        // 초기 데이터 요청
         window.postMessage({ type: "REQUEST_SAMPLES" }, location.origin);
 
         return () => {
@@ -54,7 +53,6 @@ export default function InputOutputTabs() {
                 </div>
             ) : (
                 <>
-                    {/* 탭 헤더 */}
                     <div className="tabs tabs-boxed w-full shrink-0 overflow-x-auto rounded-b-none">
                         {samples.map((s, idx) => (
                             <button
@@ -72,7 +70,6 @@ export default function InputOutputTabs() {
                         ))}
                     </div>
 
-                    {/* 탭 콘텐츠 */}
                     <div className="flex-1 min-h-0 w-full border border-base-300 rounded-t-none rounded-b-box">
                         {samples.map((s, idx) => (
                             <div
@@ -88,7 +85,8 @@ export default function InputOutputTabs() {
                                         </span>
                                     </label>
                                     <pre
-                                        className="grow min-h-0 overflow-auto m-0 whitespace-pre-wrap break-words
+                                        className="grow min-h-0 m-0
+                                            whitespace-pre overflow-x-auto overflow-y-auto
                                             border border-base-300 rounded-box p-3 pb-6
                                             leading-6 font-mono box-border"
                                     >
@@ -104,7 +102,8 @@ export default function InputOutputTabs() {
                                         </span>
                                     </label>
                                     <pre
-                                        className="grow min-h-0 overflow-auto m-0 whitespace-pre-wrap break-words
+                                        className="grow min-h-0 m-0
+                                            whitespace-pre overflow-x-auto overflow-y-auto
                                             border border-base-300 rounded-box p-3 pb-6
                                             leading-6 font-mono box-border"
                                     >

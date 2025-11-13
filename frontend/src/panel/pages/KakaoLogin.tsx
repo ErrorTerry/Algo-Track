@@ -18,6 +18,17 @@ export default function KakaoLogin() {
                     className="w-[320px] md:w-[350px] h-auto"
                 />
             </button>
+
+            <button // 임시 로그인 버튼 (개발용)
+                className="pt-5 bg-transparent border-none hover:scale-105 transition-transform duration-200"
+                onClick={() => {
+                    localStorage.setItem("authToken", "dummy");
+                    location.reload();
+                }}
+            >
+                임시 로그인
+            </button>
+
         </div>
     );
 }
