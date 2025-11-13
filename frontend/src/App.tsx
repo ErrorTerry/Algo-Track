@@ -30,6 +30,7 @@ export default function App() {
                             <Route path="/" element={<Ide />} />
                             <Route path="/ide" element={<Ide />} />
                             <Route path="/dictionary" element={<Dictionary />} />
+                            <Route path="/dictionary/:algoId" element={<Dictionary />} />
                             <Route path="/goal" element={<Goal />} />
                             <Route path="/stats" element={<Statistics />} />
                             {/* 로그인된 상태에서 로그인 페이지로 가려 하면 자동으로 / 로 리다이렉트 */}
