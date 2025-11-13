@@ -1,5 +1,6 @@
-import {useEffect, useMemo, useRef, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { CATEGORIES } from "../data/dictionary";
 
 type SearchResult = { id: string; title: string; description?: string };
 
@@ -14,16 +15,13 @@ export default function Navbar() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // 데모용 사전 데이터
-    const localDict = useMemo<SearchResult[]>(
-        () => [
-            { id: "queue", title: "큐 (Queue)", description: "FIFO 자료구조" },
-            { id: "stack", title: "스택 (Stack)", description: "LIFO 자료구조" },
-            { id: "bfs", title: "BFS", description: "너비 우선 탐색" },
-            { id: "dfs", title: "DFS", description: "깊이 우선 탐색" },
-            { id: "heap", title: "힙 (Heap)", description: "우선순위 큐 구현체" },
-        ],
-        []
+
+    const localDict: SearchResult[] = CATEGORIES.flatMap(cat =>
+        cat.algorithms.map(algo => ({
+            id: algo.id,
+            title: algo.title,
+            description: algo.description,
+        }))
     );
 
     // 검색 디바운스
