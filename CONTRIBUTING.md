@@ -85,7 +85,7 @@ issue/FRONT-123-login-ui  →  dev  →  main (배포 시)
 예시:
 
 ```
-feat(frontend): 로그인 페이지 UI 추가 #123
+feat(frontend): 로그인 페이지 UI 추가 #42
 
 - Tailwind 스타일 적용
 - 반응형 레이아웃 개선
