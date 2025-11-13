@@ -6,7 +6,7 @@ import Dictionary from "./panel/pages/Dictionary";
 import Goal from "./panel/pages/Goal";
 import Ide from "./panel/pages/Ide";
 import Statistics from "./panel/pages/Statistics";
-import Login from "./panel/pages/KakaoLogin"; // 로그인 페이지 컴포넌트
+import Login from "./panel/pages/KakaoLogin";
 
 export default function App() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
