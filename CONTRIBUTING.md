@@ -77,22 +77,18 @@ issue/FRONT-123-login-ui  →  dev  →  main (배포 시)
 ## 🧩 3. 커밋 규칙
 
 ```
-<type>(<scope>): <subject>
+<type>(<scope>): <subject> #123>
 
 <body: 변경 이유/세부사항>
-
-<footer: Closes #123, BREAKING CHANGE 등>
 ```
 
 예시:
 
 ```
-feat(frontend): 로그인 페이지 UI 추가
+feat(frontend): 로그인 페이지 UI 추가 #42
 
 - Tailwind 스타일 적용
 - 반응형 레이아웃 개선
-
-Closes #42
 ```
 
 * **type:** feat | fix | refactor | chore | docs | test | ci
