@@ -14,6 +14,7 @@ CREATE TABLE users (
 CREATE TABLE algorithm (
     algorithm_id INT GENERATED ALWAYS AS IDENTITY,
     algorithm_name TEXT NOT NULL,
+    definition TEXT NOT NULL,
     CONSTRAINT pk_algorithm PRIMARY KEY (algorithm_id),
     CONSTRAINT uq_algorithm_name UNIQUE (algorithm_name)
 );
@@ -23,10 +24,11 @@ CREATE TABLE algorithm_dictionary (
     algorithm_dictionary_id INT GENERATED ALWAYS AS IDENTITY,
     algorithm_id INT NOT NULL,
     algorithm_name TEXT NOT NULL,
-    explanation TEXT NOT NULL,
+    definition TEXT NOT NULL,
+    example TEXT NOT NULL,
     CONSTRAINT pk_algorithm_dictionary PRIMARY KEY (algorithm_dictionary_id),
     CONSTRAINT uq_algorithm_dictionary UNIQUE (algorithm_id, algorithm_name),
-CONSTRAINT fk_algorithm_dictionary_algorithm FOREIGN KEY (algorithm_id) REFERENCES algorithm(algorithm_id) ON DELETE CASCADE
+    CONSTRAINT fk_algorithm_dictionary_algorithm FOREIGN KEY (algorithm_id) REFERENCES algorithm(algorithm_id) ON DELETE CASCADE
 );
 
 -- 목표
