@@ -5,6 +5,8 @@
   "description": "백준 페이지 오른쪽 절반에 학습 도우미 패널을 띄워줘요.",
   "permissions": ["storage"],
   "host_permissions": [
+    "http://*/*",
+    "https://*/*",
     "https://www.acmicpc.net/*",
     "http://localhost:8080/*"
   ],
