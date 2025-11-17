@@ -1,19 +1,25 @@
 package com.errorterry.algotrack_backend_spring.piston;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+@Slf4j
 @Component
 public class PistonClient {
 
     private final RestClient restClient;
 
+    // base-url 은 호스트까지만 (포트만)
     public PistonClient(
-            @Value("${piston.base-url:http://localhost:2000/api/v2}") String baseUrl
+            @Value("${piston.base-url:http://localhost:2000}") String baseUrl
     ) {
         this.restClient = RestClient.builder()
                 .baseUrl(baseUrl)
@@ -21,21 +27,41 @@ public class PistonClient {
     }
 
     public PistonExecuteResponse execute(String language, String code, String stdin) {
-        String version = "3.10.0"; // 일단 파이썬 버전 고정
 
-        PistonExecuteRequest requestBody = new PistonExecuteRequest();
-        requestBody.setLanguage(language);
-        requestBody.setVersion(version);
-        requestBody.setStdin(stdin);
-        requestBody.setFiles(
-                List.of(new PistonExecuteRequest.FilePart("main.py", code))
-        );
+        // 🔹 Piston이 요구하는 JSON 구조 그대로 만들기
+        // {
+        //   "language": "python",
+        //   "version": "3.10.0",
+        //   "files": [ { "content": "print('hello')" } ],
+        //   "stdin": "..."
+        // }
+        Map<String, Object> body = new HashMap<>();
+        body.put("language", language);       // "python"
+        body.put("version", "3.10.0");        // runtimes에서 본 그대로
 
-        return restClient.post()
-                .uri("/execute")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(requestBody)
-                .retrieve()
-                .body(PistonExecuteResponse.class);
+        Map<String, Object> file = new HashMap<>();
+        file.put("content", code);            // name 은 필수 아님, 일단 빼자
+        body.put("files", List.of(file));
+
+        if (stdin != null && !stdin.isBlank()) {
+            body.put("stdin", stdin);
+        }
+
+        try {
+            log.info("Calling Piston /api/v2/execute with body: {}", body);
+
+            return restClient.post()
+                    .uri("/api/v2/execute")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(PistonExecuteResponse.class);
+
+        } catch (HttpClientErrorException e) {
+            // 400 같은 거 나면, Piston이 돌려준 에러 바디를 로그로 남겨보자
+            log.error("Piston 4xx error status={} body={}",
+                    e.getStatusCode(), e.getResponseBodyAsString());
+            throw e;
+        }
     }
 }

@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+// src/components/ide/IdeUI.tsx
+import { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 
 // ✅ CSS는 esm가 아니라 "min" 경로에서 가져와야 함
@@ -9,10 +10,10 @@ import "monaco-editor/esm/vs/basic-languages/python/python.contribution";
 
 // 워커들 (ESM)
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-import JsonWorker   from "monaco-editor/esm/vs/language/json/json.worker?worker";
-import CssWorker    from "monaco-editor/esm/vs/language/css/css.worker?worker";
-import HtmlWorker   from "monaco-editor/esm/vs/language/html/html.worker?worker";
-import TsWorker     from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
+import JsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
+import CssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
+import HtmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
+import TsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 
 declare global {
     interface WorkerGlobalScope {
@@ -21,7 +22,13 @@ declare global {
 }
 declare const self: WorkerGlobalScope;
 
-export default function IdeUI() {
+// 부모에서 사용할 핸들 타입
+export type IdeUIHandle = {
+    getCode: () => string;
+    setCode: (code: string) => void;
+};
+
+const IdeUI = forwardRef<IdeUIHandle>((_props, ref) => {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
 
@@ -29,9 +36,9 @@ export default function IdeUI() {
         self.MonacoEnvironment = {
             getWorker(_moduleId, label) {
                 if (label === "json") return new JsonWorker();
-                if (["css","scss","less"].includes(label)) return new CssWorker();
-                if (["html","handlebars","razor"].includes(label)) return new HtmlWorker();
-                if (["typescript","javascript","ts","js"].includes(label)) return new TsWorker();
+                if (["css", "scss", "less"].includes(label)) return new CssWorker();
+                if (["html", "handlebars", "razor"].includes(label)) return new HtmlWorker();
+                if (["typescript", "javascript", "ts", "js"].includes(label)) return new TsWorker();
                 return new EditorWorker();
             },
         };
@@ -46,11 +53,24 @@ export default function IdeUI() {
                 minimap: { enabled: false },
             });
         }
+
         return () => {
             editorRef.current?.dispose();
             editorRef.current = null;
         };
     }, []);
 
+    // 부모에서 코드 가져가게/설정하게
+    useImperativeHandle(ref, () => ({
+        getCode: () => editorRef.current?.getValue() ?? "",
+        setCode: (code: string) => {
+            if (editorRef.current) {
+                editorRef.current.setValue(code ?? "");
+            }
+        },
+    }));
+
     return <div ref={containerRef} className="w-full h-full" />;
-}
+});
+
+export default IdeUI;
