@@ -1,21 +1,26 @@
 package com.errorterry.algotrack_backend_spring.piston;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
-@Getter
-@Setter
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class PistonExecuteResponse {
-    private RunResult run;
+
     private String language;
     private String version;
+    private Run run;
 
-    @Getter
-    @Setter
-    public static class RunResult {
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Run {
         private String stdout;
         private String stderr;
-        private Integer code;
         private String output;
+        private Integer code;
+        private String signal;
     }
 }

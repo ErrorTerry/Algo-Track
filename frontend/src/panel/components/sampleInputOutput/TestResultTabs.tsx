@@ -10,12 +10,11 @@ type SamplePayload = {
     parsedAt: number;
 };
 
-// IDE 실행 결과를 샘플 id 기준으로 저장하기 위한 타입
 type RunResultMap = Record<number, string>;
 
 export default function TestResultTabs() {
     const [samples, setSamples] = useState<Sample[]>([]);
-    const [results] = useState<RunResultMap>({}); // 나중에 setResults 추가해서 실제 실행 결과 넣으면 됨
+    const [results, setResults] = useState<RunResultMap>({});
 
     useEffect(() => {
         const applyPayload = (p?: SamplePayload) => {
@@ -39,15 +38,19 @@ export default function TestResultTabs() {
                 applyPayload(ev.data.payload);
             }
 
-            // 나중에 IDE 실행 결과 받을 때 이런 식으로 확장하면 됨
-            // if (ev.data?.type === "BOJ_RUN_RESULT") {
-            //     const { sampleId, output } = ev.data.payload;
-            //     setResults(prev => ({ ...prev, [sampleId]: output }));
-            // }
+            // IDE 실행 결과 수신
+            if (ev.data?.type === "BOJ_RUN_RESULT") {
+                const { sampleId, output } = ev.data.payload ?? {};
+                if (typeof sampleId === "number") {
+                    setResults((prev) => ({
+                        ...prev,
+                        [sampleId]: output ?? "",
+                    }));
+                }
+            }
         };
         window.addEventListener("message", onMsg);
 
-        // 초기 데이터 요청 (예제 정보)
         window.postMessage({ type: "REQUEST_SAMPLES" }, location.origin);
 
         return () => {
@@ -56,18 +59,26 @@ export default function TestResultTabs() {
         };
     }, []);
 
-    // 🔍 판정 함수
+    // 공백/개행 보정
+    const normalize = (s: string) => {
+        return s
+            .replace(/\r\n/g, "\n")
+            .split("\n")
+            .map((line) => line.replace(/\s+$/g, "")) // 각 줄 끝 공백 제거
+            .join("\n")
+            .trimEnd();
+    };
+
     const getJudge = (sample: Sample) => {
         const userOutput = results[sample.id];
         if (userOutput == null || userOutput.trim() === "") return "결과 없음";
 
-        const expected = sample.output?.trim();
-        const actual = userOutput?.trim();
+        const expected = normalize(sample.output ?? "");
+        const actual = normalize(userOutput ?? "");
 
         return expected === actual ? "맞았습니다" : "틀렸습니다";
     };
 
-    // 🔍 판정 텍스트 스타일
     const judgeStyle = (judge: string) => {
         if (judge === "맞았습니다") return "text-green-600 font-bold";
         if (judge === "틀렸습니다") return "text-red-600 font-bold";
@@ -93,41 +104,33 @@ export default function TestResultTabs() {
                                 {/* 왼쪽: 예제 출력 */}
                                 <div className="flex flex-col min-h-0">
                                     <label className="label shrink-0 flex items-center justify-between">
-                                        <span className="label-text font-bold">
-                                            예제 {s.id}
-                                        </span>
+                    <span className="label-text font-bold">
+                      예제 {s.id}
+                    </span>
                                     </label>
 
                                     <pre
-                                        className="grow min-h-0 m-0
-                                            whitespace-pre overflow-x-auto overflow-y-auto
-                                            border border-base-300 rounded-box p-3 pb-6
-                                            leading-6 font-mono box-border"
+                                        className="grow min-h-0 m-0 whitespace-pre overflow-x-auto overflow-y-auto border border-base-300 rounded-box p-3 pb-6 leading-6 font-mono box-border"
                                     >
-                                        {s.output || "(비어있음)"}
-                                    </pre>
+                    {s.output || "(비어있음)"}
+                  </pre>
                                 </div>
 
                                 {/* 오른쪽: IDE 실행 결과 + 판정 */}
                                 <div className="flex flex-col min-h-0">
                                     <label className="label shrink-0 flex items-center justify-between">
-                                        <span className="label-text font-bold">
-                                            IDE 실행 결과 {s.id}
-                                        </span>
-                                        <span className={judgeStyle(judge)}>
-                                            {judge}
-                                        </span>
+                    <span className="label-text font-bold">
+                      IDE 실행 결과 {s.id}
+                    </span>
+                                        <span className={judgeStyle(judge)}>{judge}</span>
                                     </label>
 
                                     <pre
-                                        className="grow min-h-0 m-0
-                                            whitespace-pre overflow-x-auto overflow-y-auto
-                                            border border-base-300 rounded-box p-3 pb-6
-                                            leading-6 font-mono box-border"
+                                        className="grow min-h-0 m-0 whitespace-pre overflow-x-auto overflow-y-auto border border-base-300 rounded-box p-3 pb-6 leading-6 font-mono box-border"
                                     >
-                                        {results[s.id] ??
-                                            "아직 실행 결과가 없어.\n코드를 실행하면 여기로 들어오게 연결하면 돼 😊"}
-                                    </pre>
+                    {results[s.id] ??
+                        "아직 실행 결과가 없어.\n코드를 실행하면 여기로 들어오게 연결돼 😊"}
+                  </pre>
                                 </div>
                             </div>
                         );

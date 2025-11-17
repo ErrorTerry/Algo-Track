@@ -21,22 +21,11 @@ public class CodeRunController {
     }
 
     @PostMapping("/run")
-    public ResponseEntity<?> runCode(@RequestBody RunRequest request) {
-        try {
-            String stdin = request.getStdin() == null ? "" : request.getStdin();
-
-            PistonExecuteResponse result =
-                    pistonClient.execute(request.getLanguage(), request.getCode(), stdin);
-
-            return ResponseEntity.ok(result);
-
-        } catch (Exception e) {
-            log.error("runCode error", e);
-            ErrorResponse error = new ErrorResponse(
-                    "PISTON_ERROR",
-                    "코드 실행 중 오류가 발생했습니다: " + e.getMessage()
-            );
-            return ResponseEntity.internalServerError().body(error);
-        }
+    public PistonExecuteResponse runCode(@RequestBody RunRequest request) {
+        return pistonClient.execute(
+                request.getLanguage(),
+                request.getCode(),
+                request.getStdin()
+        );
     }
 }
