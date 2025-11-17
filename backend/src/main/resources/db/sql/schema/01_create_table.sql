@@ -14,7 +14,7 @@ CREATE TABLE users (
 CREATE TABLE algorithm (
     algorithm_id INT GENERATED ALWAYS AS IDENTITY,
     algorithm_name TEXT NOT NULL,
-    definition TEXT NOT NULL,
+    definition TEXT,
     CONSTRAINT pk_algorithm PRIMARY KEY (algorithm_id),
     CONSTRAINT uq_algorithm_name UNIQUE (algorithm_name)
 );
