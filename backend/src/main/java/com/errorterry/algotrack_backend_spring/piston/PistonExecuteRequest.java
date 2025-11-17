@@ -1,30 +1,26 @@
 package com.errorterry.algotrack_backend_spring.piston;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.List;
 
-@Getter
-@Setter
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class PistonExecuteRequest {
 
     private String language;
     private String version;
-    private List<FilePart> files;
+    private List<File> files;
     private String stdin;
 
-    @Getter
-    @Setter
-    public static class FilePart {
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class File {
         private String name;
         private String content;
-
-        public FilePart() {}
-
-        public FilePart(String name, String content) {
-            this.name = name;
-            this.content = content;
-        }
     }
 }
