@@ -36,7 +36,9 @@ public class SecurityConfig {
         // 허용할 Origin
         config.setAllowedOrigins(List.of(
                 "http://localhost:5173",
-                "http://127.0.0.1:5173"
+                "http://127.0.0.1:5173",
+                "https://algotrack.store",
+                "https://www.acmicpc.net"
         ));
 
         // 크롬 확장앱 허용
