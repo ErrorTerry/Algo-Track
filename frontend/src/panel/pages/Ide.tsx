@@ -1,54 +1,62 @@
-// src/pages/Ide.tsx
 import { useRef, useState } from "react";
 import IdeUI from "../components/ide/IdeUI";
 import type { IdeUIHandle } from "../components/ide/IdeUI";
 import IdeHeader from "../components/ide/IdeHeader";
 import IdePageTabs from "../components/sampleInputOutput/IdePageTabs";
-import api from "../../shared/api"; // 너가 쓰는 경로에 맞춰서!
-
-type RunResult = any; // 필요하면 나중에 Piston 응답 타입 정의해도 됨
+import api from "../../shared/api";
 
 export default function Ide() {
     const editorRef = useRef<IdeUIHandle | null>(null);
 
-    const [language, setLanguage] = useState<string>("python");
-    const [stdin, setStdin] = useState<string>("");
-    const [output, setOutput] = useState<string>("");
-    const [error, setError] = useState<string>("");
-    const [loading, setLoading] = useState<boolean>(false);
+    const [language, setLanguage] = useState<string>("");
+    const [loading, setLoading] = useState(false);
 
     const handleRun = async () => {
         const code = editorRef.current?.getCode() ?? "";
 
-        setError("");
-        setOutput("");
-
         if (!language) {
-            setError("언어를 선택해 주세요.");
+            alert("언어를 선택해 주세요.");
             return;
         }
         if (!code.trim()) {
-            setError("실행할 코드가 비어 있어요.");
+            alert("실행할 코드가 비어 있어요.");
             return;
         }
 
         try {
             setLoading(true);
 
-            const body = {
-                language,       // ex) "python"
-                code,           // 에디터 내용
-                stdin,          // 아래 textarea에 입력한 값
-            };
-
+            // 👉 지금은 stdin 자동 주입 안 하니까 일단 빈 문자열
+            const body = { language, code, stdin: "" };
             const res = await api.post("/api/run", body);
 
-            // Piston 응답 구조를 아직 정확히 안 쓴 상태라 우선 전체를 JSON으로 보여주자
-            setOutput(JSON.stringify(res.data, null, 2));
+            console.log("✅ /api/run result:", res.data);
 
+            // 👉 Piston 응답에서 stdout 뽑기
+            const stdout =
+                (res.data as any)?.run?.stdout ??
+                (res.data as any)?.stdout ??
+                "";
+
+            console.log("✅ extracted stdout:", JSON.stringify(stdout));
+
+            // 👉 실행 결과를 아래 테스트 탭으로 전달
+            //    일단 예제 1번 기준으로 sampleId = 1 고정
+            window.postMessage(
+                {
+                    type: "BOJ_RUN_RESULT",
+                    payload: {
+                        sampleId: 1,      // 🔥 TestResultTabs 에서도 id가 1인 예제가 있어야 함
+                        output: stdout ?? "",
+                    },
+                },
+                window.location.origin,
+            );
         } catch (e: any) {
             console.error(e);
-            setError(e.response?.data?.message ?? e.message ?? "실행 중 오류가 발생했어요.");
+            alert(
+                "실행 중 오류가 발생했어요. (자세한 내용은 콘솔 로그 확인)"
+            );
         } finally {
             setLoading(false);
         }
@@ -59,11 +67,8 @@ export default function Ide() {
             {/* 위쪽 IDE 영역 */}
             <div
                 className="rounded-lg border border-base-300 grid overflow-hidden"
-                style={{
-                    gridTemplateRows: "12% 88%",
-                }}
+                style={{ gridTemplateRows: "12% 88%" }}
             >
-                {/* 헤더 */}
                 <div className="relative z-50 w-full min-w-0 flex flex-wrap items-center justify-end gap-2 sm:gap-3 px-4 py-2 border-b border-base-300 bg-base-200">
                     <IdeHeader
                         language={language}
@@ -73,57 +78,12 @@ export default function Ide() {
                     />
                 </div>
 
-                {/* 에디터 + stdin + 결과 */}
                 <div className="min-h-0 rounded-b-lg overflow-hidden">
-                    <div className="flex flex-col h-full">
-                        {/* 에디터 */}
-                        <div className="flex-1 min-h-0">
-                            <IdeUI ref={editorRef} />
-                        </div>
-
-                        {/* stdin & 결과 패널 */}
-                        <div className="border-t border-base-300 grid grid-cols-1 md:grid-cols-2 gap-2 p-3 bg-base-200/50">
-                            {/* stdin 입력 */}
-                            <div className="flex flex-col gap-1">
-                                <span className="text-sm font-semibold">표준 입력 (stdin)</span>
-                                <textarea
-                                    className="textarea textarea-bordered textarea-sm md:textarea-md w-full resize-none"
-                                    rows={4}
-                                    placeholder="예제 입력이나 테스트 입력을 여기에 적어봐 👉"
-                                    value={stdin}
-                                    onChange={(e) => setStdin(e.target.value)}
-                                />
-                            </div>
-
-                            {/* 결과 출력 */}
-                            <div className="flex flex-col gap-1">
-                                <span className="text-sm font-semibold">실행 결과</span>
-                                <div className="border border-base-300 rounded-lg bg-base-100 h-full p-2 overflow-auto text-xs md:text-sm whitespace-pre-wrap">
-                                    {loading && (
-                                        <div className="flex items-center gap-2 text-sm">
-                                            <span className="loading loading-spinner loading-sm" />
-                                            <span>코드 실행 중...</span>
-                                        </div>
-                                    )}
-                                    {!loading && error && (
-                                        <div className="text-error">{error}</div>
-                                    )}
-                                    {!loading && !error && output && (
-                                        <pre>{output}</pre>
-                                    )}
-                                    {!loading && !error && !output && (
-                                        <span className="text-base-content/60 text-sm">
-                      아직 실행 결과가 없어요. 코드를 작성하고 Run 버튼을 눌러봐! 🚀
-                    </span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <IdeUI ref={editorRef} />
                 </div>
             </div>
 
-            {/* 아래쪽 예제 입출력 영역 (지금 건들지 말기) */}
+            {/* 아래쪽 예제 입출력 / 테스트 결과 영역 */}
             <div className="rounded-lg border border-base-300 h-full flex flex-col overflow-hidden">
                 <div className="flex-1 min-h-0">
                     <IdePageTabs />
