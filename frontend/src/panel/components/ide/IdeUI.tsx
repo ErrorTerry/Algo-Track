@@ -1,14 +1,13 @@
-// src/components/ide/IdeUI.tsx
 import { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 
-// ✅ CSS는 esm가 아니라 "min" 경로에서 가져와야 함
+// CSS
 import "monaco-editor/min/vs/editor/editor.main.css";
 
-// 언어 하이라이트 등록
+// Languages
 import "monaco-editor/esm/vs/basic-languages/python/python.contribution";
 
-// 워커들 (ESM)
+// Workers
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import JsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 import CssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
@@ -22,13 +21,18 @@ declare global {
 }
 declare const self: WorkerGlobalScope;
 
-// 부모에서 사용할 핸들 타입
+// 부모가 사용할 핸들
 export type IdeUIHandle = {
     getCode: () => string;
     setCode: (code: string) => void;
 };
 
-const IdeUI = forwardRef<IdeUIHandle>((_props, ref) => {
+// ⭐ 부모에서 받을 props 타입 정의
+export type IdeUIProps = {
+    onChange?: () => void;
+};
+
+const IdeUI = forwardRef<IdeUIHandle, IdeUIProps>((props, ref) => {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
 
@@ -52,6 +56,11 @@ const IdeUI = forwardRef<IdeUIHandle>((_props, ref) => {
                 fontSize: 14,
                 minimap: { enabled: false },
             });
+
+            // ⭐ 코드 변경 이벤트 → 부모에게 알려줌!
+            editorRef.current.onDidChangeModelContent(() => {
+                props.onChange?.();
+            });
         }
 
         return () => {
@@ -60,7 +69,7 @@ const IdeUI = forwardRef<IdeUIHandle>((_props, ref) => {
         };
     }, []);
 
-    // 부모에서 코드 가져가게/설정하게
+    // 부모가 사용할 메서드 전달
     useImperativeHandle(ref, () => ({
         getCode: () => editorRef.current?.getValue() ?? "",
         setCode: (code: string) => {
