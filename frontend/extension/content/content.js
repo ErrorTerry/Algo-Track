@@ -10,7 +10,7 @@
     // =========================
     const btn = document.createElement("button");
     btn.id = "bj-helper-toggle-btn";
-    btn.textContent = "Helper 열기";
+    btn.textContent = "Algo-Track";
     document.body.appendChild(btn);
 
     // =========================
@@ -109,12 +109,12 @@
         if (open) {
             panel.classList.add("open");
             document.documentElement.classList.add("bj-helper-open");
-            btn.textContent = "Helper 닫기";
+            btn.textContent = "Algo-Track";
             if (btn.parentElement !== panel) panel.appendChild(btn);
         } else {
             panel.classList.remove("open");
             document.documentElement.classList.remove("bj-helper-open");
-            btn.textContent = "Helper 열기";
+            btn.textContent = "Algo-Track";
             if (btn.parentElement !== document.body) document.body.appendChild(btn);
         }
     };

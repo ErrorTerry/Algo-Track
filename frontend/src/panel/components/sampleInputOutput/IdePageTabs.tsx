@@ -8,7 +8,7 @@ export default function IdePageTabs() {
     return (
         <div className="w-full h-full flex flex-col min-h-0">
             {/* 상단 탭 버튼 */}
-            <div className="flex space-x-5 mb-4 shrink-0">
+            <div className="flex space-x-5 shrink-0">
                 <button
                     className={`btn btn-wide min-h-18 gap-4 text-[18px] md:text-[20px] font-semibold ${
                         activeTab === "io" ? "btn-success" : ""
