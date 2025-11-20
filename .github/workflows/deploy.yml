@@ -3,8 +3,8 @@ name: Deploy Backend to EC2
 on:
   push:
     branches:
-      - dev        # dev 머지될 때 자동 실행
-  workflow_dispatch: # 필요할 때 수동 실행도 가능하게
+      - dev          # dev에 푸시/머지될 때 자동 실행
+  workflow_dispatch: # 필요할 때 Actions 탭에서 수동 실행
 
 jobs:
   deploy-backend:
@@ -15,46 +15,50 @@ jobs:
       REMOTE_BACKEND_DIR: /home/ubuntu/Algo-Track/backend
 
     steps:
+      # 1) 레포 체크아웃
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ---- Backend 빌드 ----
+      # 2) JDK 설정
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
+      # 3) gradlew 실행 권한 부여
       - name: Grant execute permission for gradlew
         run: |
           cd $BACKEND_DIR
           chmod +x gradlew
 
+      # 4) 백엔드 빌드
       - name: Build Spring Boot JAR
         run: |
           cd $BACKEND_DIR
           ./gradlew clean bootJar
 
-      - name: Find built JAR
-        id: jar
+      # 5) 빌드 결과 확인 (디버그용 로그)
+      - name: List built JARs
         run: |
-          cd $BACKEND_DIR
-          JAR_PATH=$(ls build/libs/*.jar | head -n 1)
-          echo "jar_path=$BACKEND_DIR/$JAR_PATH" >> $GITHUB_OUTPUT
-          echo "Found JAR: $BACKEND_DIR/$JAR_PATH"
+          echo "=== Local JARs ==="
+          ls -al $BACKEND_DIR/build/libs || echo "build/libs 폴더가 없음"
 
-      # ---- EC2로 JAR 업로드 ----
+      # 6) EC2로 JAR 업로드
       - name: Upload JAR to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: ${{ steps.jar.outputs.jar_path }}
-          target: ${{ env.REMOTE_BACKEND_DIR }}
-          strip_components: 1
+          # GitHub Actions 쪽 경로: backend/build/libs/*.jar
+          source: ${{ env.BACKEND_DIR }}/build/libs/*.jar
+          # EC2 쪽 목표 폴더: /home/ubuntu/Algo-Track/backend/build/libs
+          target: ${{ env.REMOTE_BACKEND_DIR }}/build/libs
+          # backend / build / libs 세 단계 잘라내고 파일명만 두기
+          strip_components: 3
 
-      # ---- EC2에서 백엔드 재시작 ----
+      # 7) EC2에서 백엔드 재시작
       - name: Restart backend on EC2
         uses: appleboy/ssh-action@v0.1.10
         with:
@@ -63,16 +67,26 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -e
+
             cd $REMOTE_BACKEND_DIR
+            echo "📁 현재 위치: $(pwd)"
+
+            echo "📂 build/libs 내용:"
+            ls -al build/libs || echo "build/libs 폴더가 없거나 비어 있음"
 
             echo "🔍 최신 JAR 찾는 중..."
-            NEW_JAR=$(ls build/libs/*.jar | head -n 1)
+            NEW_JAR=$(ls build/libs/*.jar 2>/dev/null | sort | tail -n 1 || true)
             echo "   사용할 JAR: $NEW_JAR"
 
-            echo "🧨 기존 백엔드 프로세스 종료 (있으면)"
+            if [ -z "$NEW_JAR" ]; then
+              echo "❌ build/libs 안에 .jar 파일을 찾지 못했어. 업로드 단계 확인 필요."
+              exit 1
+            fi
+
+            echo "💣 기존 백엔드 프로세스 종료 (있으면)"
             pkill -f "java -jar" || echo "기존 프로세스가 없을 수도 있음"
 
-            echo "🚀 새 백엔드 시작"
+            echo "🚀 새 백엔드 시작: $NEW_JAR"
             nohup java -jar "$NEW_JAR" > log.txt 2>&1 &
 
             sleep 2
