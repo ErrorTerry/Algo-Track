@@ -68,7 +68,8 @@ jobs:
           script: |
             set -e
 
-            cd $REMOTE_BACKEND_DIR
+            # 🔥 여기를 REMOTE_BACKEND_DIR 대신 절대경로로!
+            cd /home/ubuntu/Algo-Track/backend
             echo "📁 현재 위치: $(pwd)"
 
             echo "📂 build/libs 내용:"
