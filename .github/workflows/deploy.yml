@@ -51,7 +51,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           source: ${{ steps.jar.outputs.jar_path }}
-          target: ${{ env.REMOTE_BACKEND_DIR }}/build/libs/
+          target: ${{ env.REMOTE_BACKEND_DIR }}
           strip_components: 1
 
       # ---- EC2에서 백엔드 재시작 ----
