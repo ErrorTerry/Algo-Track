@@ -1,0 +1,44 @@
+name: Deploy Backend to EC2
+
+on:
+  push:
+    branches:
+      - dev     # dev 머지되면 자동 배포
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up JDK
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Build Spring Boot JAR
+      run: ./gradlew bootJar
+
+    - name: Upload JAR to EC2
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: "build/libs/*.jar"
+        target: "/home/ubuntu/Algo-Track/backend/build/libs/"
+
+    - name: Restart backend on EC2
+      uses: appleboy/ssh-action@v0.1.8
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          cd /home/ubuntu/Algo-Track/backend
+          pkill -f "java -jar" || true
+          NEW_JAR=$(ls build/libs/*.jar | head -n 1)
+          nohup java -jar "$NEW_JAR" > log.txt 2>&1 &
