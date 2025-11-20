@@ -40,8 +40,8 @@ jobs:
         run: |
           cd $BACKEND_DIR
           JAR_PATH=$(ls build/libs/*.jar | head -n 1)
-          echo "jar_path=$JAR_PATH" >> $GITHUB_OUTPUT
-          echo "Found JAR: $JAR_PATH"
+          echo "jar_path=$BACKEND_DIR/$JAR_PATH" >> $GITHUB_OUTPUT
+          echo "Found JAR: $BACKEND_DIR/$JAR_PATH"
 
       # ---- EC2로 JAR 업로드 ----
       - name: Upload JAR to EC2
