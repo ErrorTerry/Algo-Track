@@ -3,42 +3,78 @@ name: Deploy Backend to EC2
 on:
   push:
     branches:
-      - dev     # dev 머지되면 자동 배포
+      - dev        # dev 머지될 때 자동 실행
+  workflow_dispatch: # 필요할 때 수동 실행도 가능하게
 
 jobs:
-  deploy:
+  deploy-backend:
     runs-on: ubuntu-latest
 
+    env:
+      BACKEND_DIR: backend
+      REMOTE_BACKEND_DIR: /home/ubuntu/Algo-Track/backend
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up JDK
-      uses: actions/setup-java@v3
-      with:
-        java-version: '17'
-        distribution: 'temurin'
+      # ---- Backend 빌드 ----
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
 
-    - name: Build Spring Boot JAR
-      run: ./gradlew bootJar
+      - name: Grant execute permission for gradlew
+        run: |
+          cd $BACKEND_DIR
+          chmod +x gradlew
 
-    - name: Upload JAR to EC2
-      uses: appleboy/scp-action@v0.1.4
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ubuntu
-        key: ${{ secrets.EC2_SSH_KEY }}
-        source: "build/libs/*.jar"
-        target: "/home/ubuntu/Algo-Track/backend/build/libs/"
+      - name: Build Spring Boot JAR
+        run: |
+          cd $BACKEND_DIR
+          ./gradlew clean bootJar
 
-    - name: Restart backend on EC2
-      uses: appleboy/ssh-action@v0.1.8
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ubuntu
-        key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-          cd /home/ubuntu/Algo-Track/backend
-          pkill -f "java -jar" || true
-          NEW_JAR=$(ls build/libs/*.jar | head -n 1)
-          nohup java -jar "$NEW_JAR" > log.txt 2>&1 &
+      - name: Find built JAR
+        id: jar
+        run: |
+          cd $BACKEND_DIR
+          JAR_PATH=$(ls build/libs/*.jar | head -n 1)
+          echo "jar_path=$JAR_PATH" >> $GITHUB_OUTPUT
+          echo "Found JAR: $JAR_PATH"
+
+      # ---- EC2로 JAR 업로드 ----
+      - name: Upload JAR to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: ${{ steps.jar.outputs.jar_path }}
+          target: ${{ env.REMOTE_BACKEND_DIR }}/build/libs/
+          strip_components: 1
+
+      # ---- EC2에서 백엔드 재시작 ----
+      - name: Restart backend on EC2
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            cd $REMOTE_BACKEND_DIR
+
+            echo "🔍 최신 JAR 찾는 중..."
+            NEW_JAR=$(ls build/libs/*.jar | head -n 1)
+            echo "   사용할 JAR: $NEW_JAR"
+
+            echo "🧨 기존 백엔드 프로세스 종료 (있으면)"
+            pkill -f "java -jar" || echo "기존 프로세스가 없을 수도 있음"
+
+            echo "🚀 새 백엔드 시작"
+            nohup java -jar "$NEW_JAR" > log.txt 2>&1 &
+
+            sleep 2
+            echo "✅ 현재 java 프로세스:"
+            ps aux | grep java | head -n 5
