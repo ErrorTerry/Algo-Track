@@ -1,13 +1,42 @@
-import { useState, useEffect, useRef } from "react";
-import { useParams } from "react-router-dom";
-import { CATEGORIES } from "../data/dictionary";
+import {useState, useEffect, useRef} from "react";
+import {useParams} from "react-router-dom";
+import api from "../../shared/api";
+
+type AlgorithmCategoryApi = {
+    algorithmId: number;
+    algorithmName: string;
+    definition: string;
+};
+
+type AlgorithmDictionaryApi = {
+    algorithmDictionaryId: number;
+    algorithmId: number;
+    algorithmName: string;
+    definition: string;
+    example?: string;
+};
+
+type AlgoCard = {
+    id: string;
+    title: string;
+    description: string;
+    detail?: string;
+};
+
+type Category = {
+    id: string;
+    name: string;
+    summary?: string;
+    algorithms: AlgoCard[];
+};
 
 export default function Dictionary() {
-    const { algoId } = useParams<{ algoId?: string }>();
+    const {algoId} = useParams<{ algoId?: string }>();
 
-    const [openCategoryId, setOpenCategoryId] = useState<string | null>(
-        CATEGORIES[0]?.id ?? null
-    );
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [openCategoryId, setOpenCategoryId] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -15,10 +44,53 @@ export default function Dictionary() {
         setOpenCategoryId((current) => (current === id ? null : id));
     };
 
+    // 1) 서버에서 데이터 불러오기
     useEffect(() => {
-        if (!algoId) return;
+        const fetchData = async () => {
+            try {
+                setLoading(true);
+                setError(null);
 
-        const foundCategory = CATEGORIES.find((cat) =>
+                const [algRes, dictRes] = await Promise.all([
+                    api.get<AlgorithmCategoryApi[]>("/api/algorithm"),
+                    api.get<AlgorithmDictionaryApi[]>("/api/algorithm--dictionary"),
+                ]);
+
+                const algos = algRes.data;
+                const dicts = dictRes.data;
+
+                const mapped: Category[] = algos.map((alg) => ({
+                    id: String(alg.algorithmId),
+                    name: alg.algorithmName,
+                    summary: alg.definition,
+                    algorithms: dicts
+                        .filter((d) => d.algorithmId === alg.algorithmId)
+                        .map((d) => ({
+                            id: String(d.algorithmDictionaryId),
+                            title: d.algorithmName,
+                            description: d.definition,
+                            detail: d.example,
+                        })),
+                }));
+
+                setCategories(mapped);
+                setOpenCategoryId(mapped[0]?.id ?? null);
+            } catch (e: any) {
+                console.error(e);
+                setError(e.message ?? "알고리즘 사전 데이터를 불러오지 못했어.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []);
+
+    // 2) /dictionary/:algoId 로 들어왔을 때 해당 카드로 스크롤
+    useEffect(() => {
+        if (!algoId || categories.length === 0) return;
+
+        const foundCategory = categories.find((cat) =>
             cat.algorithms.some((a) => a.id === algoId)
         );
 
@@ -35,19 +107,40 @@ export default function Dictionary() {
                 }
             }, 80);
         }
-    }, [algoId]);
+    }, [algoId, categories]);
+
+    if (loading) {
+        return (
+            <div className="w-full h-full flex items-center justify-center">
+                <span className="loading loading-spinner loading-lg"/>
+                <span className="ml-3 text-lg">알고리즘 사전 불러오는 중...</span>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="w-full h-full flex items-center justify-center text-red-500">
+                {error}
+            </div>
+        );
+    }
 
     return (
         <div className="w-full h-full flex flex-col min-h-0 p-5 md:p-6">
             {/* 아코디언 리스트 */}
             <div className="flex-1 min-h-0 space-y-4 overflow-y-auto pr-2">
-                {CATEGORIES.map((cat) => {
+                {categories.map((cat) => {
                     const isOpen = openCategoryId === cat.id;
 
                     return (
                         <div
                             key={cat.id}
-                            className="border border-base-300 rounded-[16px] bg-base-100 shadow-sm"
+                            className={`rounded-[16px] transition-all duration-200 transform
+                            ${isOpen
+                                ? "bg-neutral-content scale-[1.01] shadow-md border border-base-200"
+                                : "bg-base-100 shadow-sm border border-base-300"
+                            }`}
                         >
                             {/* 아코디언 헤더 */}
                             <button
@@ -55,7 +148,6 @@ export default function Dictionary() {
                                 className="w-full flex items-center justify-between px-4 md:px-5 py-4 md:py-5 text-left"
                                 onClick={() => toggleCategory(cat.id)}
                             >
-                                {/* ▶ 왼쪽 영역: flex-1 + text-left 로 딱 붙게 */}
                                 <div className="flex-1 text-left">
                                     <div className="text-2xl md:text-3xl font-bold">
                                         {cat.name}
@@ -67,27 +159,26 @@ export default function Dictionary() {
                                     )}
                                 </div>
 
-                                {/* ▶ 아이콘 영역 */}
                                 <span
                                     className={`ml-3 md:ml-4 flex-shrink-0 transition-transform duration-200 ${
                                         isOpen ? "rotate-90" : ""
                                     }`}
                                 >
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                        className="w-6 h-6 md:w-7 md:h-7"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M9 5l7 7-7 7"
-                                        />
-                                    </svg>
-                                </span>
+                  <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      className="w-6 h-6 md:w-7 md:h-7"
+                  >
+                    <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </span>
                             </button>
 
                             {/* 아코디언 내용 */}
@@ -100,23 +191,25 @@ export default function Dictionary() {
                                                 cardRefs.current[algo.id] = el;
                                             }}
                                             className={`rounded-[14px] border border-base-300 bg-base-100 shadow p-5 md:p-6 hover:shadow-md transition cursor-default
-                                                ${
+                        ${
                                                 algoId === algo.id
                                                     ? "ring-2 ring-primary shadow-[0_0_12px_rgba(0,0,0,0.2)]"
                                                     : ""
                                             }
-                                            `}
+                      `}
                                         >
                                             <div className="text-xl md:text-2xl font-bold mb-2">
                                                 {algo.title}
                                             </div>
 
-                                            <div className="text-lg md:text-xl opacity-90 leading-relaxed mb-2 whitespace-pre-line">
+                                            <div
+                                                className="text-lg md:text-xl opacity-90 leading-relaxed mb-2 whitespace-pre-line">
                                                 {algo.description}
                                             </div>
 
                                             {algo.detail && (
-                                                <div className="text-base md:text-lg opacity-80 leading-relaxed whitespace-pre-line">
+                                                <div
+                                                    className="text-base md:text-lg opacity-80 leading-relaxed whitespace-pre-line">
                                                     {algo.detail}
                                                 </div>
                                             )}
