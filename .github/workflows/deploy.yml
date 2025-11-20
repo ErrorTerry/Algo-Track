@@ -68,28 +68,10 @@ jobs:
           script: |
             set -e
 
-            # 🔥 여기를 REMOTE_BACKEND_DIR 대신 절대경로로!
-            cd /home/ubuntu/Algo-Track/backend
-            echo "📁 현재 위치: $(pwd)"
+            echo "🔄 백엔드 서비스 재시작 중..."
+            sudo systemctl restart algotrack-backend.service
 
-            echo "📂 build/libs 내용:"
-            ls -al build/libs || echo "build/libs 폴더가 없거나 비어 있음"
+            echo "⏳ 서비스 상태 확인..."
+            sudo systemctl status algotrack-backend.service --no-pager
 
-            echo "🔍 최신 JAR 찾는 중..."
-            NEW_JAR=$(ls build/libs/*.jar 2>/dev/null | sort | tail -n 1 || true)
-            echo "   사용할 JAR: $NEW_JAR"
-
-            if [ -z "$NEW_JAR" ]; then
-              echo "❌ build/libs 안에 .jar 파일을 찾지 못했어. 업로드 단계 확인 필요."
-              exit 1
-            fi
-
-            echo "💣 기존 백엔드 프로세스 종료 (있으면)"
-            pkill -f "java -jar" || echo "기존 프로세스가 없을 수도 있음"
-
-            echo "🚀 새 백엔드 시작: $NEW_JAR"
-            nohup java -jar "$NEW_JAR" > log.txt 2>&1 &
-
-            sleep 2
-            echo "✅ 현재 java 프로세스:"
-            ps aux | grep java | head -n 5
+            echo "🎉 재시작 완료!"
