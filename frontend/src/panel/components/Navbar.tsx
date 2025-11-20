@@ -1,92 +1,126 @@
-import {useEffect, useRef, useState} from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { CATEGORIES } from "../data/dictionary";
+import api from "../../shared/api";
 
-type SearchResult = { id: string; title: string; description?: string };
+type SearchResult = {
+    id: string;
+    title: string;
+    description?: string;
+};
 
 export default function Navbar() {
     const [isSearching, setIsSearching] = useState(false);
     const [q, setQ] = useState("");
     const [results, setResults] = useState<SearchResult[]>([]);
     const [activeIndex, setActiveIndex] = useState(0);
-    const [pinned, setPinned] = useState<SearchResult | null>(null); // 한 개만 고정
+
+    const [searchDict, setSearchDict] = useState<SearchResult[]>([]);
+    const [loadingDict, setLoadingDict] = useState(true);
+
     const containerRef = useRef<HTMLDivElement | null>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
     const navigate = useNavigate();
     const location = useLocation();
 
+    // 1) 서버 API 로 검색 데이터 로딩
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const dictRes = await api.get("/api/algorithm--dictionary");
+                const mapped = dictRes.data.map((d: any) => ({
+                    id: String(d.algorithmDictionaryId),
+                    title: d.algorithmName,
+                    description: d.definition,
+                }));
+                setSearchDict(mapped);
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoadingDict(false);
+            }
+        };
+        fetchData();
+    }, []);
 
-    const localDict: SearchResult[] = CATEGORIES.flatMap(cat =>
-        cat.algorithms.map(algo => ({
-            id: algo.id,
-            title: algo.title,
-            description: algo.description,
-        }))
-    );
-
-    // 검색 디바운스
+    // 2) 검색 디바운스
     useEffect(() => {
         if (!isSearching) return;
+
         const t = setTimeout(() => {
             const lower = q.trim().toLowerCase();
-            const r = lower
-                ? localDict.filter(
+            if (!lower) {
+                setResults([]);
+            } else {
+                const r = searchDict.filter(
                     (x) =>
                         x.title.toLowerCase().includes(lower) ||
-                        (x.description ?? "").toLowerCase().includes(lower) ||
-                        x.id.includes(lower)
-                )
-                : [];
-            setResults(r);
+                        (x.description ?? "").toLowerCase().includes(lower)
+                );
+                setResults(r);
+            }
             setActiveIndex(0);
         }, 150);
-        return () => clearTimeout(t);
-    }, [q, isSearching, localDict]);
 
-    // 외부 클릭 닫기
+        return () => clearTimeout(t);
+    }, [q, isSearching, searchDict]);
+
+    // 외부 클릭 → 검색 닫기
     useEffect(() => {
         if (!isSearching) return;
+
         const onDocClick = (e: MouseEvent) => {
             if (!containerRef.current) return;
             if (!containerRef.current.contains(e.target as Node)) {
-                setIsSearching(false); setQ(""); setResults([]);
+                setIsSearching(false);
+                setQ("");
+                setResults([]);
             }
         };
+
         document.addEventListener("mousedown", onDocClick);
         return () => document.removeEventListener("mousedown", onDocClick);
     }, [isSearching]);
 
-    // 포커스/ESC
+    // ESC 처리
     useEffect(() => {
         if (isSearching && inputRef.current) inputRef.current.focus();
+
         const onKey = (e: KeyboardEvent) => {
             if (e.key === "Escape") {
-                setIsSearching(false); setQ(""); setResults([]);
+                setIsSearching(false);
+                setQ("");
+                setResults([]);
             }
         };
+
         document.addEventListener("keydown", onKey);
         return () => document.removeEventListener("keydown", onKey);
     }, [isSearching]);
 
+    // 메뉴 active 표시
     const linkClass = (path: string) =>
         `hover:bg-base-200 rounded-[10px] px-3 py-2 transition ${
             location.pathname === path ? "bg-base-300 font-bold" : ""
         }`;
 
+    // 검색 결과 선택 시
     const selectAndNavigate = (r: SearchResult) => {
-        setPinned(r); // 한 개만 고정
         setIsSearching(false);
-        setQ(""); setResults([]);
+        setQ("");
+        setResults([]);
         navigate(`/dictionary/${r.id}`);
     };
 
     return (
         <div className="relative z-[10000]">
             <div ref={containerRef} className="navbar bg-base-100 shadow-sm px-6 py-3">
+
                 <div className="navbar-start" />
-                <div className="navbar-center">
+
+                {/* 검색 중일 때 중앙 강제 고정 */}
+                <div className={`navbar-center ${isSearching ? "w-full justify-center" : ""}`}>
                     {isSearching ? (
-                        // 검색 모드
+                        // 검색 UI
                         <div className="relative w-[560px] max-w-[70vw]">
                             <div className="relative">
                                 <input
@@ -96,40 +130,55 @@ export default function Navbar() {
                                     onKeyDown={(e) => {
                                         if (e.key === "ArrowDown") {
                                             e.preventDefault();
-                                            setActiveIndex((i) => Math.min(i + 1, Math.max(results.length - 1, 0)));
+                                            setActiveIndex(i => Math.min(i + 1, results.length - 1));
                                         } else if (e.key === "ArrowUp") {
                                             e.preventDefault();
-                                            setActiveIndex((i) => Math.max(i - 1, 0));
+                                            setActiveIndex(i => Math.max(i - 1, 0));
                                         } else if (e.key === "Enter" && results[activeIndex]) {
                                             e.preventDefault();
                                             selectAndNavigate(results[activeIndex]);
                                         }
                                     }}
-                                    placeholder="검색어를 입력하세요 (↑/↓, Enter · ESC 닫기)"
+                                    placeholder={
+                                        loadingDict ? "사전 불러오는 중..." : "검색어 입력 (↑/↓, Enter · ESC)"
+                                    }
                                     className="input input-bordered w-full text-[16px] md:text-[18px] pr-[84px] pl-[42px] h-[42px] rounded-[12px] focus:outline-none"
                                 />
-                                {/* 좌측 아이콘 */}
+
+                                {/* 돋보기 */}
                                 <span className="absolute left-[10px] top-1/2 -translate-y-1/2 pointer-events-none">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-[20px] w-[20px] opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </span>
-                                {/* 지우기/닫기 */}
-                                <button onClick={() => setQ("")} className="absolute right-[44px] top-1/2 -translate-y-1/2 btn btn-ghost btn-xs rounded-full" aria-label="지우기">✕</button>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 opacity-70" fill="none"
+                                         viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                        <path strokeLinecap="round" strokeLinejoin="round"
+                                              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                    </svg>
+                                </span>
+
+                                {/* 지우기 버튼 */}
+                                <button
+                                    onClick={() => setQ("")}
+                                    className="absolute right-[44px] top-1/2 -translate-y-1/2 btn btn-ghost btn-xs rounded-full"
+                                >
+                                    ✕
+                                </button>
+
+                                {/* 닫기 */}
                                 <button
                                     onClick={() => { setIsSearching(false); setQ(""); setResults([]); }}
                                     className="absolute right-[8px] top-1/2 -translate-y-1/2 btn btn-ghost btn-xs rounded-full"
-                                    aria-label="닫기"
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M10.5 3a7.5 7.5 0 105.356 12.806l3.668 3.668a.75.75 0 101.06-1.06l-3.668-3.669A7.5 7.5 0 0010.5 3z" />
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px]"
+                                         viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M10.5 3a7.5 7.5 0 105.356 12.806l3.668 3.668a.75.75 0 101.06-1.06l-3.668-3.669A7.5 7.5 0 0010.5 3z"/>
                                     </svg>
                                 </button>
                             </div>
 
-                            {/* 결과 패널 */}
+                            {/* 드롭다운 (아래로 드롭 + z-index 최상단) */}
                             {(q.trim() || results.length > 0) && (
-                                <div className="absolute left-0 right-0 mt-2 rounded-[12px] border border-base-300 bg-base-100 shadow-xl max-h-[280px] overflow-auto">
+                                <div
+                                    className="absolute left-0 right-0 top-[46px] z-[99999] rounded-[12px] border border-base-300 bg-base-100 shadow-xl max-h-[280px] overflow-auto"
+                                >
                                     {results.length === 0 ? (
                                         <div className="p-4 text-[14px] opacity-70">검색 결과가 없습니다.</div>
                                     ) : (
@@ -156,7 +205,7 @@ export default function Navbar() {
                             )}
                         </div>
                     ) : (
-                        // 기본 모드 (Link 연결)
+                        // 기본 Navbar 메뉴
                         <ul className="menu menu-horizontal gap-4 text-[18px] md:text-[20px] font-semibold">
                             <li><Link to="/ide" className={linkClass("/ide")}>IDE</Link></li>
                             <li><Link to="/dictionary" className={linkClass("/dictionary")}>사전</Link></li>
@@ -171,41 +220,17 @@ export default function Navbar() {
                     {!isSearching && (
                         <button
                             className="btn btn-ghost btn-circle hover:bg-gray-100"
-                            aria-label="검색 열기"
                             onClick={() => setIsSearching(true)}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-[26px] w-[26px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-[26px] w-[26px]" fill="none"
+                                 viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                <path strokeLinecap="round" strokeLinejoin="round"
+                                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                         </button>
                     )}
                 </div>
             </div>
-
-            {/* 하단 고정 카드 (한 개) */}
-            {pinned && (
-                <div className="px-6 mt-3">
-                    <div className="rounded-[12px] border border-base-300 bg-base-100 shadow-lg p-4 relative">
-                        <button
-                            className="btn btn-ghost btn-xs rounded-full absolute right-2 top-2"
-                            aria-label="고정 해제"
-                            onClick={() => setPinned(null)}
-                        >
-                            ✕
-                        </button>
-                        <button
-                            className="text-left w-full"
-                            onClick={() => navigate(`/dictionary/${pinned.id}`)}
-                            title="상세로 이동"
-                        >
-                            <div className="text-[16px] font-bold mb-1">{pinned.title}</div>
-                            {pinned.description && (
-                                <div className="text-[14px] opacity-90">{pinned.description}</div>
-                            )}
-                        </button>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
