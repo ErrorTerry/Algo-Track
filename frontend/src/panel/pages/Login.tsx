@@ -1,4 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * Render the Algo Track login page with controls to start the authentication flow.
+ *
+ * The primary action opens the web login at https://algotrack.store/login — using a new Chrome extension tab when the extension API is available or opening a new browser tab otherwise. A development shortcut stores a dummy `authToken` in localStorage and reloads the page.
+ *
+ * @returns The rendered JSX for the login page.
+ */
 export default function Login() {
     const handleOpenWebLogin = () => {
         const loginUrl = "https://algotrack.store/login";

@@ -8,6 +8,15 @@ import Ide from "./panel/pages/Ide";
 import Statistics from "./panel/pages/Statistics";
 import Login from "./panel/pages/Login.tsx";
 
+/**
+ * Root application component that manages authentication state and renders routes and layout.
+ *
+ * On mount, reads "authToken" from localStorage to determine whether the user is authenticated.
+ * When authenticated, displays the navigation bar and the main application routes; otherwise,
+ * renders the login screen for all paths.
+ *
+ * @returns The root React element containing the app layout and route configuration. 
+ */
 export default function App() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
 

@@ -8,6 +8,17 @@ declare global {
     }
 }
 
+/**
+ * Renders a Kakao login button and manages the Kakao OAuth flow.
+ *
+ * Initializes the Kakao SDK on mount (if available and not already initialized). When the button
+ * is clicked it starts the Kakao login flow, retrieves the user's Kakao profile, attempts to
+ * resolve an existing application user by social ID, and creates a new user if none exists.
+ * Successful authentication stores `userId` and `authToken` in localStorage and notifies the user
+ * via alerts; errors are surfaced via alerts and console errors.
+ *
+ * @returns A JSX element for the Kakao login button.
+ */
 export default function KakaoLogin() {
     // SDK 초기화 (맨 처음 한 번만)
     useEffect(() => {

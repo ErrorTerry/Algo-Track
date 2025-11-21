@@ -1,5 +1,10 @@
 import KakaoLogin from "../login/KakaoLogin";
 
+/**
+ * Renders the centered AlgoTrack login page with title, helper text, and a section for login option buttons.
+ *
+ * @returns The JSX element for the login page layout containing the title, description, and login options area.
+ */
 export default function LoginPage() {
     return (
         <div className="flex flex-col items-center justify-center h-screen gap-8 text-center">
