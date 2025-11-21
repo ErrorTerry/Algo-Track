@@ -80,6 +80,7 @@ jobs:
     env:
       WEB_DIR: web
       REMOTE_WEB_DIR: /home/ubuntu/Algo-Track/web   # EC2에서 웹 파일 둘 위치
+      VITE_KAKAO_JS_KEY: ${{ secrets.VITE_KAKAO_JS_KEY }}
 
     steps:
       # 1) 레포 체크아웃
