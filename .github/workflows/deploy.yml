@@ -1,4 +1,4 @@
-name: Deploy Backend to EC2
+name: Deploy Backend & Web to EC2
 
 on:
   push:
@@ -51,11 +51,8 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          # GitHub Actions 쪽 경로: backend/build/libs/*.jar
           source: ${{ env.BACKEND_DIR }}/build/libs/*.jar
-          # EC2 쪽 목표 폴더: /home/ubuntu/Algo-Track/backend/build/libs
           target: ${{ env.REMOTE_BACKEND_DIR }}/build/libs
-          # backend / build / libs 세 단계 잘라내고 파일명만 두기
           strip_components: 3
 
       # 7) EC2에서 백엔드 재시작
@@ -75,3 +72,62 @@ jobs:
             sudo systemctl status algotrack-backend.service --no-pager
 
             echo "🎉 재시작 완료!"
+
+  deploy-web:
+    needs: deploy-backend    # 백엔드 배포 끝난 뒤에 웹 배포
+    runs-on: ubuntu-latest
+
+    env:
+      WEB_DIR: web
+      REMOTE_WEB_DIR: /home/ubuntu/Algo-Track/web   # EC2에서 웹 파일 둘 위치
+
+    steps:
+      # 1) 레포 체크아웃
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2) Node.js 설정
+      - name: Set up Node.js
+        #   React/Vite 빌드용
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 3) 웹 빌드 (Vite)
+      - name: Install & Build Web
+        run: |
+          cd $WEB_DIR
+          npm ci || npm install
+          npm run build
+
+      # 4) 빌드 결과 확인
+      - name: List built web files
+        run: |
+          echo "=== Local web dist files ==="
+          ls -al $WEB_DIR/dist || echo "dist 폴더가 없음"
+
+      # 5) EC2로 web/dist 업로드
+      - name: Upload Web dist to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          # dist 안의 내용물만 업로드
+          source: ${{ env.WEB_DIR }}/dist/*
+          # EC2에서 정적 파일을 둘 디렉토리
+          target: ${{ env.REMOTE_WEB_DIR }}
+          strip_components: 2
+
+      # (옵션) Nginx 리로드
+      - name: Reload Nginx
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            echo "🔄 Nginx reload..."
+            sudo nginx -t && sudo systemctl reload nginx
+            echo "🎉 Web 정적 파일 배포 완료!"
