@@ -18,10 +18,7 @@ export default function KakaoLogin() {
     }, []);
 
     const handleKakaoLogin = () => {
-        if (!window.Kakao) {
-            alert("Kakao SDK가 로드되지 않았어요 ㅠㅠ");
-            return;
-        }
+        if (!window.Kakao) return;
 
         window.Kakao.Auth.login({
             scope: "profile_nickname",
@@ -30,50 +27,30 @@ export default function KakaoLogin() {
                     url: "/v2/user/me",
                     success: async (res: any) => {
                         const kakaoId = String(res.id);
-                        const nickname =
-                            res.kakao_account?.profile?.nickname ?? "알고트랙 유저";
+                        const nickname = res.kakao_account?.profile?.nickname ?? "알고트랙 유저";
 
                         try {
-                            // 1) 기존 유저인지 확인
-                            const r = await api.get(`/users/by-social/${kakaoId}`);
-                            const user = r.data;
+                            // 🔥 로그인 + 신규면 자동 생성
+                            const response = await api.post("/auth/login", {
+                                socialId: kakaoId,
+                                socialType: "KAKAO",
+                                nickname,
+                            });
 
-                            localStorage.setItem("userId", String(user.userId ?? ""));
-                            localStorage.setItem("authToken", user.token ?? "dummy");
+                            const token = response.data.accessToken;
+                            localStorage.setItem("accessToken", token);
 
-                            alert(`${user.nickname ?? nickname}님, 로그인 완료!`);
-                        } catch (err: any) {
-                            if (err.response?.status === 404) {
-                                // 2) 없으면 회원가입
-                                const created = await api.post("/users", {
-                                    socialId: kakaoId,
-                                    socialType: "KAKAO",
-                                    nickname,
-                                });
-                                const newUser = created.data;
-
-                                localStorage.setItem(
-                                    "userId",
-                                    String(newUser.userId ?? "")
-                                );
-                                localStorage.setItem("authToken", "dummy");
-
-                                alert(`${nickname}님, 회원가입 완료!`);
-                            } else {
-                                console.error(err);
-                                alert("로그인 중 오류가 발생했어요 ㅠㅠ");
-                            }
+                            alert(`${nickname}님 환영합니다! 🎉`);
+                        } catch (err) {
+                            console.error(err);
+                            alert("로그인 중 오류 발생");
                         }
-                    },
-                    fail(error: any) {
-                        console.error(error);
-                        alert("카카오 프로필 조회 실패 ㅠㅠ");
                     },
                 });
             },
             fail(error: any) {
                 console.error(error);
-                alert("카카오 로그인 실패 ㅠㅠ");
+                alert("카카오 로그인 실패");
             },
         });
     };

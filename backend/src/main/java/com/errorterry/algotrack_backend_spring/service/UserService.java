@@ -33,4 +33,17 @@ public class UserService {
                 .map(UserResponseDto::from);
     }
 
+
+    // 로그인용: socialId 기준으로 있으면 그 유저, 없으면 새로 생성
+    public User findOrCreate(UserRequestDto requestDto) {
+        return userRepository.findBySocialId(requestDto.getSocialId())
+                .orElseGet(() -> {
+                    User user = User.builder()
+                            .socialId(requestDto.getSocialId())
+                            .socialType(requestDto.getSocialType())
+                            .nickname(requestDto.getNickname())
+                            .build();
+                    return userRepository.save(user);
+                });
+    }
 }
