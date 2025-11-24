@@ -43,6 +43,8 @@ export default function KakaoLogin() {
 
                             const token = response.data.accessToken;
                             localStorage.setItem("accessToken", token);
+                            localStorage.setItem("nickname", nickname);
+
 
                             // alert 대신 온보딩 페이지로 이동
                             navigate("/login-success", { replace: true });
