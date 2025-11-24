@@ -25,7 +25,7 @@ public class AuthController {
         User user = userService.findOrCreate(requestDto);
 
         // 2) JWT 발급
-        String token = jwtUtil.generateToken(user.getUserId(), user.getSocialId());
+        String token = jwtUtil.generateToken(user.getUserId());
 
         // 3) 유저 정보 + 토큰 리턴
         LoginResponseDto response = LoginResponseDto.of(user, token);
