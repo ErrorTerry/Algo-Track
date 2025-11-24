@@ -30,8 +30,10 @@ export default function KakaoLogin() {
                     url: "/v2/user/me",
                     success: async (res: any) => {
                         const kakaoId = String(res.id);
-                        const nickname =
-                            res.kakao_account?.profile?.nickname ?? "알고트랙 유저";
+                        const profile = res.kakao_account?.profile ?? {};
+                        const nickname: string = profile.nickname ?? "알고트랙 유저";
+                        const profileImageUrl: string | undefined =
+                            profile.profile_image_url ?? undefined;
 
                         try {
                             // 로그인 + 신규면 자동 생성
@@ -41,12 +43,27 @@ export default function KakaoLogin() {
                                 nickname,
                             });
 
+                            // 웹 로컬에 저장
                             const token = response.data.accessToken;
                             localStorage.setItem("accessToken", token);
                             localStorage.setItem("nickname", nickname);
+                            if (profileImageUrl) {
+                                localStorage.setItem("profileImageUrl", profileImageUrl);
+                            }
+
+                            // 확장앱으로도 로그인 정보 브로드캐스트
+                            window.postMessage(
+                                {
+                                    type: "ALGO_LOGIN_SUCCESS",
+                                    accessToken: token,
+                                    nickname,
+                                    profileImageUrl: profileImageUrl ?? null,
+                                },
+                                window.origin
+                            );
 
 
-                            // alert 대신 온보딩 페이지로 이동
+                            // 온보딩 페이지로 이동
                             navigate("/login-success", { replace: true });
                         } catch (err) {
                             console.error(err);

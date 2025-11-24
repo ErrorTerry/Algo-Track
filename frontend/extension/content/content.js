@@ -363,13 +363,42 @@
     window.addEventListener("popstate", emitSamples);
     window.addEventListener("hashchange", emitSamples);
 
-    // 패널에서 “최신 주세요” 요청 시 재발사
     window.addEventListener("message", (ev) => {
         if (ev.origin !== location.origin) return;
-        if (ev.data && ev.data.type === "REQUEST_SAMPLES") {
+        const data = ev.data;
+        if (!data || !data.type) return;
+
+        if (data.type === "REQUEST_SAMPLES") {
+            // 예제 입출력 다시 쏴달라는 요청
             emitSamples();
+            return;
+        }
+
+        if (data.type === "ALGO_LOGIN_SUCCESS") {
+            // 웹 로그인에서 온 토큰/닉네임/프로필 저장
+            const { accessToken, nickname, profileImageUrl } = data;
+            if (!accessToken) return;
+
+            try {
+                chrome.storage.local.set(
+                    {
+                        accessToken,
+                        nickname: nickname || null,
+                        profileImageUrl: profileImageUrl || null,
+                    },
+                    () => {
+                        console.log(
+                            "[AlgoTrack] login info saved in chrome.storage",
+                            { nickname }
+                        );
+                    }
+                );
+            } catch (e) {
+                console.error("[AlgoTrack] failed to save login info", e);
+            }
         }
     });
+
 
     // 디버그 훅
     window.__emitBojSamples = emitSamples;
