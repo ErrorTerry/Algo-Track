@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api";
 
 declare global {
@@ -9,6 +10,8 @@ declare global {
 }
 
 export default function KakaoLogin() {
+    const navigate = useNavigate();
+
     // SDK 초기화 (맨 처음 한 번만)
     useEffect(() => {
         if (window.Kakao && !window.Kakao.isInitialized()) {
@@ -27,10 +30,11 @@ export default function KakaoLogin() {
                     url: "/v2/user/me",
                     success: async (res: any) => {
                         const kakaoId = String(res.id);
-                        const nickname = res.kakao_account?.profile?.nickname ?? "알고트랙 유저";
+                        const nickname =
+                            res.kakao_account?.profile?.nickname ?? "알고트랙 유저";
 
                         try {
-                            // 🔥 로그인 + 신규면 자동 생성
+                            // 로그인 + 신규면 자동 생성
                             const response = await api.post("/auth/login", {
                                 socialId: kakaoId,
                                 socialType: "KAKAO",
@@ -40,7 +44,8 @@ export default function KakaoLogin() {
                             const token = response.data.accessToken;
                             localStorage.setItem("accessToken", token);
 
-                            alert(`${nickname}님 환영합니다! 🎉`);
+                            // alert 대신 온보딩 페이지로 이동
+                            navigate("/login-success", { replace: true });
                         } catch (err) {
                             console.error(err);
                             alert("로그인 중 오류 발생");
