@@ -24,7 +24,7 @@
     panel.appendChild(resizer);
 
     const root = document.createElement("div");
-    root.id = "bj-helper-react-root"; // ★ 고유 id로 변경
+    root.id = "bj-helper-react-root"; // ★ 고유 id
     panel.appendChild(root);
 
     document.body.appendChild(panel);
@@ -197,7 +197,7 @@
     } catch (_) {}
 
     // ======================================================================
-    // 7) ★ 백준 예제 입/출력 파싱 + 이벤트 발사 (이 파일 안에서 전부 처리)
+    // 7) ★ 백준 예제 입/출력 파싱 + 이벤트 발사
     // ======================================================================
     const normalizePreText = (t) =>
         (t || "")
@@ -229,7 +229,7 @@
         const inputBlocks = new Map();
         const outputBlocks = new Map();
 
-        // A) id 기반 (#sample-input-1, #sample-output-1) — pre 자체가 id일 수 있음
+        // A) id 기반 (#sample-input-1, #sample-output-1)
         document
             .querySelectorAll('[id^="sample-input"], [id^="sample-output"]')
             .forEach((node) => {
@@ -302,6 +302,7 @@
         ).sort((a, b) => a - b);
         const pairs = indices
             .map((i) => ({
+
                 index: i,
                 input: (inputBlocks.get(i) && inputBlocks.get(i).text) || "",
                 output: (outputBlocks.get(i) && outputBlocks.get(i).text) || "",
@@ -334,7 +335,7 @@
         document.dispatchEvent(
             new CustomEvent("boj:samples", { detail: payload, bubbles: true })
         );
-        // postMessage 브릿지 (훅에서 이 경로만 들어도 OK)
+        // postMessage 브릿지
         try {
             window.postMessage({ type: "BOJ_SAMPLES", payload }, location.origin);
         } catch {}
@@ -363,8 +364,23 @@
     window.addEventListener("popstate", emitSamples);
     window.addEventListener("hashchange", emitSamples);
 
+    // =====================================================
+    // 8) 로그인 성공 postMessage 브릿지 (웹 → 확장앱)
+    // =====================================================
+    const allowedOrigins = [
+        location.origin,                 // 백준 자기자신
+        "https://algotrack.store",       // 배포 웹 로그인
+        "https://www.algotrack.store",   // 혹시 www 쓸 경우 대비
+        "http://localhost:5173",         // 로컬 개발용 (웹프론트 dev 서버)
+    ];
+
     window.addEventListener("message", (ev) => {
-        if (ev.origin !== location.origin) return;
+        if (!allowedOrigins.includes(ev.origin)) {
+            // 디버깅용 로그
+            console.log("[AlgoTrack] blocked postMessage from", ev.origin, ev.data);
+            return;
+        }
+
         const data = ev.data;
         if (!data || !data.type) return;
 
@@ -389,7 +405,7 @@
                     () => {
                         console.log(
                             "[AlgoTrack] login info saved in chrome.storage",
-                            { nickname }
+                            { nickname, origin: ev.origin }
                         );
                     }
                 );
@@ -398,7 +414,6 @@
             }
         }
     });
-
 
     // 디버그 훅
     window.__emitBojSamples = emitSamples;

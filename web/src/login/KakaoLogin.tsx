@@ -43,27 +43,43 @@ export default function KakaoLogin() {
                                 nickname,
                             });
 
-                            // 웹 로컬에 저장
-                            const token = response.data.accessToken;
+                            const token: string = response.data.accessToken;
+
+                            // 👉 웹 쪽에서도 필요할 수 있으니 그대로 저장
                             localStorage.setItem("accessToken", token);
                             localStorage.setItem("nickname", nickname);
                             if (profileImageUrl) {
                                 localStorage.setItem("profileImageUrl", profileImageUrl);
                             }
 
-                            // 확장앱으로도 로그인 정보 브로드캐스트
-                            window.postMessage(
-                                {
-                                    type: "ALGO_LOGIN_SUCCESS",
-                                    accessToken: token,
-                                    nickname,
-                                    profileImageUrl: profileImageUrl ?? null,
-                                },
-                                window.origin
-                            );
+                            // 👉 확장앱(백준 탭)으로 로그인 정보 보내기
+                            if (window.opener) {
+                                try {
+                                    window.opener.postMessage(
+                                        {
+                                            type: "ALGO_LOGIN_SUCCESS",
+                                            accessToken: token,
+                                            nickname,
+                                            profileImageUrl: profileImageUrl ?? null,
+                                        },
+                                        "*" // 수신 측(content.js)에서 origin 필터링
+                                    );
+                                    console.log(
+                                        "[AlgoTrack Web] postMessage to opener (ALGO_LOGIN_SUCCESS)"
+                                    );
 
+                                    // 확장앱에서 연 경우: 로그인 끝났으니 창 닫기
+                                    window.close();
+                                    return;
+                                } catch (e) {
+                                    console.error(
+                                        "[AlgoTrack Web] failed to postMessage to opener",
+                                        e
+                                    );
+                                }
+                            }
 
-                            // 온보딩 페이지로 이동
+                            // 확장앱이 아닌, 그냥 웹에서 접속한 경우 → 온보딩 페이지로 이동
                             navigate("/login-success", { replace: true });
                         } catch (err) {
                             console.error(err);
