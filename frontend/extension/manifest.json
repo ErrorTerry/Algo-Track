@@ -3,16 +3,26 @@
   "name": "Algo Track",
   "version": "1.0.0",
   "description": "백준 페이지 오른쪽 절반에 학습 도우미 패널을 띄워줘요.",
-  "permissions": ["storage"],
+  "permissions": [
+    "storage"
+  ],
   "host_permissions": [
     "https://www.acmicpc.net/*",
     "https://algotrack.store/*"
   ],
   "content_scripts": [
     {
-      "matches": ["https://www.acmicpc.net/*"],
-      "js": ["content/content.js"],
-      "css": ["content/content.css", "dist/react-panel.css"],
+      "matches": [
+        "https://www.acmicpc.net/*",
+        "https://algotrack.store/*"
+      ],
+      "js": [
+        "content/content.js"
+      ],
+      "css": [
+        "content/content.css",
+        "dist/react-panel.css"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -22,8 +32,14 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["dist/*", "dist/assets/*", "dist/assets/**"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "dist/*",
+        "dist/assets/*",
+        "dist/assets/**"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "action": {
