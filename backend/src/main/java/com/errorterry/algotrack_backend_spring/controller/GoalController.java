@@ -2,6 +2,7 @@ package com.errorterry.algotrack_backend_spring.controller;
 
 import com.errorterry.algotrack_backend_spring.dto.GoalCreateRequestDto;
 import com.errorterry.algotrack_backend_spring.dto.GoalResponseDto;
+import com.errorterry.algotrack_backend_spring.security.AuthUser;
 import com.errorterry.algotrack_backend_spring.service.GoalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,17 +18,25 @@ public class GoalController {
 
     private final GoalService goalService;
 
-    // 사용자별(user_id) Goal 조회
-    @GetMapping("/by-user/{userId}")
-    public ResponseEntity<List<GoalResponseDto>> getGoalsByUserId(@PathVariable Integer userId) {
-        List<GoalResponseDto> result = goalService.getGoalsByUserId(userId);
-        return ResponseEntity.ok(result);
+    // 인증된 사용자 자신의 Goal 조회
+    @GetMapping
+    public ResponseEntity<List<GoalResponseDto>> getMyGoals() {
+
+        Integer userId = AuthUser.getUserId();
+
+        List<GoalResponseDto> results = goalService.getGoalsByUserId(userId);
+
+        return ResponseEntity.ok(results);
     }
 
     // Goal + GoalAlgorithm 생성
     @PostMapping
-    public ResponseEntity<GoalResponseDto> createGoalWithAlgorithms(@RequestBody GoalCreateRequestDto request) {
-        GoalResponseDto created = goalService.createGoalWithAlgorithms(request);
+    public ResponseEntity<GoalResponseDto> createGoal(@RequestBody GoalCreateRequestDto request) {
+
+        Integer userId = AuthUser.getUserId();
+
+        GoalResponseDto created = goalService.createGoalWithAlgorithms(userId, request);
+
         return ResponseEntity
                 .created(URI.create("/api/goal/" + created.getGoalId()))
                 .body(created);

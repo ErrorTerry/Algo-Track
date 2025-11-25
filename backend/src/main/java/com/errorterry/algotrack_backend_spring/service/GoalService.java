@@ -30,9 +30,9 @@ public class GoalService {
 
     // Goal + GoalAlgorithm 생성
     @Transactional
-    public GoalResponseDto createGoalWithAlgorithms(GoalCreateRequestDto request) {
-        // 유저 조회
-        User user = userRepository.findById(request.getUserId())
+    public GoalResponseDto createGoalWithAlgorithms(Integer userId, GoalCreateRequestDto request) {
+        // JWT에서 가져온 userId로 User 조회
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
 
         // Goal 저장
@@ -44,7 +44,7 @@ public class GoalService {
         Goal savedGoal = goalRepository.save(goal);
 
         // GoalAlgorithm 목록 저장
-        if (request.getGoalAlgorithms() != null && !request.getGoalAlgorithms().isEmpty()) {
+        if (request.getGoalAlgorithms() != null) {
             for (GoalAlgorithmCreateRequestDto algDto : request.getGoalAlgorithms()) {
 
                 Algorithm algorithm = algorithmRepository.findById(algDto.getAlgorithmId())
