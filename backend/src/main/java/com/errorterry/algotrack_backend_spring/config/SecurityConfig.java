@@ -31,13 +31,15 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // 🔒 인증 필요 API만 명시
                         .requestMatchers(
-                                "/api/auth/**",           // 로그인/회원가입
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/v3/api-docs/**"
-                        ).permitAll()                    // 누구라도 접근 가능
-                        .anyRequest().authenticated()    // 그 외는 인증 필요
+                                "/api/goal/**",
+                                "/api/goal-algorithm/**"
+                        ).authenticated()
+
+                        // 🔓 그 외 나머지는 전부 허용
+                        .anyRequest().permitAll()
                 )
 
                 // 🔥 JWT 필터 등록
