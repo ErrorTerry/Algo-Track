@@ -9,7 +9,6 @@ import java.util.List;
 @NoArgsConstructor @AllArgsConstructor @Builder
 public class GoalCreateRequestDto {
 
-    private Integer userId;
     private GoalPeriod goalPeriod;
     private List<GoalAlgorithmCreateRequestDto> goalAlgorithms;
 
