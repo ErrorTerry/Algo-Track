@@ -17,4 +17,7 @@ public interface GoalAlgorithmRepository extends JpaRepository<GoalAlgorithm, In
     // goal_id + algorithm_name 기준 단일 조회
     Optional<GoalAlgorithm> findByGoalGoalIdAndAlgorithmAlgorithmName(Integer goalId, String algorithmName);
 
+    // goal_id + algorithm_id 기준 단일 조회
+    Optional<GoalAlgorithm> findByGoalGoalIdAndAlgorithmAlgorithmId(Integer goalId, Integer algorithmId);
+
 }

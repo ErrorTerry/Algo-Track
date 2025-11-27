@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -32,40 +33,118 @@ public class GoalService {
     // Goal + GoalAlgorithm 생성
     @Transactional
     public GoalResponseDto createGoalWithAlgorithms(Integer userId, GoalCreateRequestDto request) {
-        // JWT에서 가져온 userId로 User 조회
+
+        // 사용자 조회
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
 
-        // Goal 저장
-        Goal goal = Goal.builder()
-                .user(user)
-                .goalPeriod(request.getGoalPeriod())
-                .build();
+        GoalPeriod period = request.getGoalPeriod();
+        if (period == null) {
+            throw new IllegalArgumentException("목표 기간 오류");
+        }
 
-        Goal savedGoal = goalRepository.save(goal);
+        LocalDate targetDate = request.getTargetDate();
+        if (targetDate == null) {
+            throw new IllegalArgumentException("목표 기준 날짜 오류");
+        }
 
-        // GoalAlgorithm 목록 저장
+        // 기간별로 기존 Goal 있는지 조회 (없으면 새로 생성)
+        Goal targetGoal;
+
+        // WEEK Goal 처리 (주당 1개 유지)
+        if (period == GoalPeriod.WEEK) {
+
+            DayOfWeek dow = targetDate.getDayOfWeek();
+            LocalDate startOfWeek = targetDate.minusDays(dow.getValue() - DayOfWeek.MONDAY.getValue());
+            LocalDate endOfWeek = startOfWeek.plusDays(6);
+
+            List<Goal> weekGoals = goalRepository.findByUserUserIdAndGoalPeriodAndCreateAtBetween(
+                    userId,
+                    GoalPeriod.WEEK,
+                    startOfWeek,
+                    endOfWeek
+            );
+
+            if (weekGoals.size() > 1) {
+                throw new IllegalArgumentException("데이터 오류 : 동일 주에 WEEK Goal이 2개 이상 존재");
+            }
+
+            if (weekGoals.size() == 1) {
+                targetGoal = weekGoals.get(0);
+            } else {
+                targetGoal = Goal.builder()
+                        .user(user)
+                        .goalPeriod(GoalPeriod.WEEK)
+                        .createAt(targetDate)
+                        .build();
+                targetGoal = goalRepository.save(targetGoal);
+            }
+
+            // DAY Goal 처리 (날짜당 1개 유자)
+        } else if (period == GoalPeriod.DAY) {
+
+            List<Goal> dayGoals = goalRepository.findByUserUserIdAndGoalPeriodAndCreateAt(
+                    userId,
+                    GoalPeriod.DAY,
+                    targetDate
+            );
+
+            if (dayGoals.size() > 1) {
+                throw new IllegalArgumentException("데이터 오류 : 동일 날짜에 DAY Goal이 2개 이상 존재");
+            }
+
+            if (dayGoals.size() == 1) {
+                targetGoal = dayGoals.get(0);
+            } else {
+                targetGoal = Goal.builder()
+                        .user(user)
+                        .goalPeriod(GoalPeriod.DAY)
+                        .createAt(targetDate)
+                        .build();
+                targetGoal = goalRepository.save(targetGoal);
+            }
+
+        } else {
+            throw new IllegalArgumentException("지원하지 않는 기간입니다.");
+        }
+
+        // GoalAlgorithm 처리 (중첩 추가)
         if (request.getGoalAlgorithms() != null) {
             for (GoalAlgorithmCreateRequestDto algDto : request.getGoalAlgorithms()) {
 
-                Algorithm algorithm = algorithmRepository.findById(algDto.getAlgorithmId())
-                        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 알고리즘입니다."));
+                Integer algorithmId = algDto.getAlgorithmId();
+                if (algorithmId == null) {
+                    throw new IllegalArgumentException("algorithmId가 비어있습니다.");
+                }
 
-                GoalAlgorithm goalAlgorithm = GoalAlgorithm.builder()
-                        .goal(savedGoal)
-                        .algorithm(algorithm)
-                        .goalProblem(algDto.getGoalProblem())
-                        .solveProblem(0)
-                        .build();
+                Algorithm algorithm = algorithmRepository.findById(algorithmId)
+                        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 알고리즘"));
 
-                goalAlgorithmRepository.save(goalAlgorithm);
+                Optional<GoalAlgorithm> existingOpt =
+                        goalAlgorithmRepository.findByGoalGoalIdAndAlgorithmAlgorithmId(
+                                targetGoal.getGoalId(),
+                                algorithmId
+                        );
 
+                Integer addGoalProblem = algDto.getGoalProblem() != null ? algDto.getGoalProblem() : 0;
+
+                if (existingOpt.isPresent()) {
+                    GoalAlgorithm existing = existingOpt.get();
+                    existing.setGoalProblem(existing.getGoalProblem() + addGoalProblem);
+                    goalAlgorithmRepository.save(existing);
+                } else {
+                    GoalAlgorithm goalAlgorithm = GoalAlgorithm.builder()
+                            .goal(targetGoal)
+                            .algorithm(algorithm)
+                            .goalProblem(addGoalProblem)
+                            .solveProblem(0)
+                            .build();
+                    goalAlgorithmRepository.save(goalAlgorithm);
+                }
             }
         }
-
-        // 생성된 Goal 반환
-        return GoalResponseDto.from(savedGoal);
-
+        // 최종 반환
+        return GoalResponseDto.from(targetGoal);
     }
 
     // 공통 : Goal 리스트 + GoalAlgorithm 리스트 묶어서 DTO 변환
