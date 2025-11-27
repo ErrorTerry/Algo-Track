@@ -22,9 +22,16 @@ public interface GoalRepository extends JpaRepository<Goal, Integer> {
 
     // 일간 목표 : created_at이 특정 날짜와 같은 Goal 목록 조회
     List<Goal> findByUserUserIdAndGoalPeriodAndCreateAt(
-      Integer userId,
-      GoalPeriod goalPeriod,
-      LocalDate targetDate
+            Integer userId,
+            GoalPeriod goalPeriod,
+            LocalDate targetDate
+    );
+
+    // 월별 목표 : created_at이 월 범위에 포함되는 Goal 목록 조회
+    List<Goal> findByUserUserIdAndCreateAtBetween(
+            Integer userId,
+            LocalDate startDate,
+            LocalDate endDate
     );
 
 }
