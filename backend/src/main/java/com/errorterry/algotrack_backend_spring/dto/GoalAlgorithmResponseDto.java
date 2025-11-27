@@ -10,6 +10,7 @@ public class GoalAlgorithmResponseDto {
     private Integer goalAlgorithmId;
     private Integer goalId;
     private Integer algorithmId;
+    private String algorithmName;
     private Integer goalProblem;
     private Integer solveProblem;
 
@@ -18,6 +19,7 @@ public class GoalAlgorithmResponseDto {
                 .goalAlgorithmId(goalAlgorithm.getGoalAlgorithmId())
                 .goalId(goalAlgorithm.getGoal().getGoalId())
                 .algorithmId(goalAlgorithm.getAlgorithm().getAlgorithmId())
+                .algorithmName(goalAlgorithm.getAlgorithm().getAlgorithmName())
                 .goalProblem(goalAlgorithm.getGoalProblem())
                 .solveProblem(goalAlgorithm.getSolveProblem())
                 .build();
