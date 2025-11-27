@@ -3,9 +3,11 @@ package com.errorterry.algotrack_backend_spring.controller;
 import com.errorterry.algotrack_backend_spring.dto.GoalAlgorithmResponseDto;
 import com.errorterry.algotrack_backend_spring.service.GoalAlgorithmService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -22,14 +24,16 @@ public class GoalAlgorithmController {
         return ResponseEntity.ok(result);
     }
 
-    // 특정 알고리즘명이 있는 GoalAlgorithm의 solveProblem +1
-    // 예시: PATCH /api/goal-algorithm/solve?goalId=1&algorithmName=DP
+    // 알고리즘명 + 날짜 기준 solveProblem +1 (0개면 NO-OP)
+    // 예시: PATCH /api/goal-algorithm/solve?algorithmName=DP&date=2025-11-20
     @PatchMapping("/solve")
-    public ResponseEntity<GoalAlgorithmResponseDto> increaseSolveProblem(
-            @RequestParam Integer goalId,
-            @RequestParam String algorithmName
+    public ResponseEntity<List<GoalAlgorithmResponseDto>> increaseSolveProblem(
+            @RequestParam String algorithmName,
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
     ) {
-        GoalAlgorithmResponseDto updated = goalAlgorithmService.increaseSolveProblem(goalId, algorithmName);
+        List<GoalAlgorithmResponseDto> updated =
+                goalAlgorithmService.increaseSolveProblem(algorithmName, date);
         return ResponseEntity.ok(updated);
     }
 
