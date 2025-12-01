@@ -1,5 +1,7 @@
 package com.errorterry.algotrack_backend_spring.controller;
 
+import com.errorterry.algotrack_backend_spring.dto.WeeklyGoalCreateRequestDto;
+import com.errorterry.algotrack_backend_spring.dto.WeeklyGoalSaveResponseDto;
 import com.errorterry.algotrack_backend_spring.dto.WeeklyGoalSummaryResponseDto;
 import com.errorterry.algotrack_backend_spring.security.AuthUser;
 import com.errorterry.algotrack_backend_spring.service.WeeklyGoalService;
@@ -32,6 +34,21 @@ public class WeeklyGoalController {
                 weeklyGoalService.getWeeklySummary(userId, weekStartDate);
 
         return ResponseEntity.ok(response);
+    }
+
+    // 주간 목표 생성/갱신 API
+    @PostMapping("/weekly")
+    public ResponseEntity<WeeklyGoalSaveResponseDto> createOrUpdateWeeklyGoal(
+            @RequestBody WeeklyGoalCreateRequestDto request
+    ) {
+
+        Integer userId = AuthUser.getUserId();
+
+        WeeklyGoalSaveResponseDto response =
+                weeklyGoalService.createOrUpdateWeeklyGoal(userId, request);
+
+        return ResponseEntity.ok(response);
+
     }
 
 }
