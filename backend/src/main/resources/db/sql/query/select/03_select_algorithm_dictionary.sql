@@ -1,1 +1,0 @@
--- SELECT algorithm_dictionary SQL

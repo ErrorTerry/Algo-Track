@@ -1,1 +1,0 @@
--- DELETE algorithm_dictionary SQL

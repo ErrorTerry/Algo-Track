@@ -1,1 +1,0 @@
--- DELETE goal SQL

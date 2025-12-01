@@ -1,1 +1,0 @@
--- UPDATE algorithm_dictionary SQL

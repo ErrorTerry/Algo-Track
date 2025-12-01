@@ -1,1 +1,0 @@
--- UPDATE goal_algorithm SQL
