@@ -31,25 +31,26 @@ CREATE TABLE algorithm_dictionary (
     CONSTRAINT fk_algorithm_dictionary_algorithm FOREIGN KEY (algorithm_id) REFERENCES algorithm(algorithm_id) ON DELETE CASCADE
 );
 
--- 목표
-CREATE TABLE goal (
-    goal_id INT GENERATED ALWAYS AS IDENTITY,
+-- 주간 목표
+CREATE TABLE weekly_goal (
+    weekly_goal_id INT GENERATED ALWAYS AS IDENTITY,
     user_id INT NOT NULL,
-    goal_period TEXT NOT NULL DEFAULT 'week' CHECK (goal_period in ('week', 'day')),
-    created_at DATE NOT NULL DEFAULT CURRENT_DATE,
-    CONSTRAINT pk_goal PRIMARY KEY (goal_id),
-    CONSTRAINT fk_goal_users FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+    week_start_date DATE NOT NULL,
+    CONSTRAINT pk_weekly_goal PRIMARY KEY (weekly_goal_id),
+    CONSTRAINT uq_weekly_goal UNIQUE (user_id, week_start_date),
+    CONSTRAINT fk_weekly_goal_users FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
--- 목표 알고리즘
-CREATE TABLE goal_algorithm (
-    goal_algorithm_id INT GENERATED ALWAYS AS IDENTITY,
-    goal_id INT NOT NULL,
+-- 일간 목표
+CREATE TABLE daily_goal (
+    daily_goal_id INT GENERATED ALWAYS AS IDENTITY,
+    weekly_goal_id INT NOT NULL,
     algorithm_id INT NOT NULL,
-    goal_problem INT NOT NULL CHECK (goal_problem >= 0),
-    solve_problem INT NOT NULL DEFAULT 0 CHECK (solve_problem >= 0 AND solve_problem <= goal_problem),
-    CONSTRAINT pk_goal_algorithm PRIMARY KEY (goal_algorithm_id),
-    CONSTRAINT uq_goal_algorithm UNIQUE (goal_id, algorithm_id),
-    CONSTRAINT fk_goal_algorithm_goal FOREIGN KEY (goal_id) REFERENCES goal(goal_id) ON DELETE CASCADE,
-    CONSTRAINT fk_goal_algorithm_algorithm FOREIGN KEY (algorithm_id) REFERENCES algorithm(algorithm_id) ON DELETE RESTRICT
+    goal_date DATE NOT NULL,
+    goal_count INT NOT NULL CHECK ( goal_count >= 0 ),
+    solve_count INT NOT NULL DEFAULT 0 CHECK ( solve_count >= 0 AND solve_count <= goal_count ),
+    CONSTRAINT pk_daily_goal PRIMARY KEY (daily_goal_id),
+    CONSTRAINT uq_daily_goal UNIQUE (weekly_goal_id, algorithm_id, goal_date),
+    CONSTRAINT fk_daily_goal_weekly_goal FOREIGN KEY (weekly_goal_id) REFERENCES weekly_goal(weekly_goal_id) ON DELETE CASCADE,
+    CONSTRAINT fk_daily_goal_algorithm FOREIGN KEY (algorithm_id) REFERENCES algorithm(algorithm_id) ON DELETE RESTRICT
 );
