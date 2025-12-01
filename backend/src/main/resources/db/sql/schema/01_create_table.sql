@@ -48,9 +48,23 @@ CREATE TABLE daily_goal (
     algorithm_id INT NOT NULL,
     goal_date DATE NOT NULL,
     goal_count INT NOT NULL CHECK ( goal_count >= 0 ),
-    solve_count INT NOT NULL DEFAULT 0 CHECK ( solve_count >= 0 AND solve_count <= goal_count ),
+    solve_count INT NOT NULL DEFAULT 0 CHECK ( solve_count >= 0 ),
     CONSTRAINT pk_daily_goal PRIMARY KEY (daily_goal_id),
     CONSTRAINT uq_daily_goal UNIQUE (weekly_goal_id, algorithm_id, goal_date),
     CONSTRAINT fk_daily_goal_weekly_goal FOREIGN KEY (weekly_goal_id) REFERENCES weekly_goal(weekly_goal_id) ON DELETE CASCADE,
     CONSTRAINT fk_daily_goal_algorithm FOREIGN KEY (algorithm_id) REFERENCES algorithm(algorithm_id) ON DELETE RESTRICT
+);
+
+-- 해결 로그
+CREATE TABLE solved_log (
+    solved_log_id INT GENERATED ALWAYS AS IDENTITY,
+    user_id INT NOT NULL,
+    algorithm_id INT NOT NULL,
+    problem_id INT NOT NULL,
+    solved_date DATE NOT NULL,
+    problem_tier TEXT NOT NULL DEFAULT 'X' CHECK ( problem_tier IN ('X', 'Unrated', 'Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Ruby') ),
+    CONSTRAINT pk_solved_log PRIMARY KEY (solved_log_id),
+    CONSTRAINT uq_solved_log UNIQUE (user_id, problem_id),
+    CONSTRAINT fk_solved_log_users FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_solved_log_algorithm FOREIGN KEY (algorithm_id) REFERENCES algorithm(algorithm_id) ON DELETE RESTRICT
 );
