@@ -19,4 +19,11 @@ public interface DailyGoalRepository extends JpaRepository<DailyGoal, Integer> {
             LocalDate goalDate
     );
 
+    // user_id + algorithm_id + goal_date 기준 단일 일간 목표 조회
+    Optional<DailyGoal> findByWeeklyGoalUserUserIdAndAlgorithmAlgorithmIdAndGoalDate(
+            Integer userId,
+            Integer algorithmId,
+            LocalDate goalDate
+    );
+
 }
