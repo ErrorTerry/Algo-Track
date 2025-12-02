@@ -67,4 +67,11 @@ public interface SolvedLogStatisticsRepository extends Repository<SolvedLog, Int
             @Param("endDate") LocalDate endDate
     );
 
+    // 특정 범위 내 solved_log 전체 조회
+    List<SolvedLog> findByUserUserIdAndSolvedDateBetween(
+            Integer userId,
+            LocalDate startDate,
+            LocalDate endDate
+    );
+
 }

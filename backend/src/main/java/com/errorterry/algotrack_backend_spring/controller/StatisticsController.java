@@ -1,7 +1,7 @@
 package com.errorterry.algotrack_backend_spring.controller;
 
 
-import com.errorterry.algotrack_backend_spring.dto.StatisticsMonthlySummaryResponseDto;
+import com.errorterry.algotrack_backend_spring.dto.MonthlyStatisticsResponseDto;
 import com.errorterry.algotrack_backend_spring.security.AuthUser;
 import com.errorterry.algotrack_backend_spring.service.StatisticsService;
 import lombok.RequiredArgsConstructor;
@@ -21,9 +21,9 @@ public class StatisticsController {
 
     private final StatisticsService statisticsService;
 
-    // 월간 요약 통계 API
+    // 월간 통계 + 조언 통합 응답 API
     @GetMapping("/monthly-summary")
-    public ResponseEntity<StatisticsMonthlySummaryResponseDto> getMonthlySummary(
+    public ResponseEntity<MonthlyStatisticsResponseDto> getMonthlySummary(
             @RequestParam("date")
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate baseDate
@@ -31,10 +31,11 @@ public class StatisticsController {
 
         Integer userId = AuthUser.getUserId();
 
-        StatisticsMonthlySummaryResponseDto response =
+        MonthlyStatisticsResponseDto response =
                 statisticsService.getMonthlySummary(userId, baseDate);
 
         return ResponseEntity.ok(response);
+
     }
 
 }
