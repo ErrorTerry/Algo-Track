@@ -180,21 +180,359 @@
             console.error("[BJ-Helper] panel module load failed", e, moduleUrl)
         );
 
-    // =========================
-    // 6) 제출 결과 감지(옵션)
-    // =========================
-    try {
-        const observer = new MutationObserver(() => {
-            if (document.body && document.body.innerText.includes("맞았습니다!!")) {
-                chrome.runtime.sendMessage({
-                    type: "SUBMIT_RESULT",
-                    verdict: "AC",
-                    at: Date.now(),
+    // ===========================================================
+    // 6) 공통 URL/도움 함수
+    // ===========================================================
+    const isStatusPage = () => location.pathname.startsWith("/status");
+    const isProblemPage = () => /\/problem\/\d+/.test(location.pathname);
+
+    const getProblemIdFromPath = () => {
+        const m = location.pathname.match(/\/problem\/(\d+)/);
+        return m ? m[1] : null;
+    };
+
+    const getTodayYmd = () => {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = `${d.getMonth() + 1}`.padStart(2, "0");
+        const day = `${d.getDate()}`.padStart(2, "0");
+        return `${y}-${m}-${day}`;
+    };
+
+    const timestampToYmd = (tsStr) => {
+        if (!tsStr) return null;
+        const tsNum = Number(tsStr);
+        if (!Number.isFinite(tsNum)) return null;
+        const d = new Date(tsNum * 1000); // 백준 timestamp는 초 단위
+        const y = d.getFullYear();
+        const m = `${d.getMonth() + 1}`.padStart(2, "0");
+        const day = `${d.getDate()}`.padStart(2, "0");
+        return {
+            ymd: `${y}-${m}-${day}`,
+            date: d,
+        };
+    };
+
+    // ===========================================================
+    // 6-1) 로그인 유저/페이지 유저 구분
+    // ===========================================================
+    const getLoggedInUserId = () => {
+        const link = document.querySelector(
+            "ul.loginbar a.username[href^='/user/']"
+        );
+        if (!link) return null;
+
+        const href = link.getAttribute("href") || "";
+        const m = href.match(/\/user\/([^/?#]+)/);
+        if (m && m[1]) return decodeURIComponent(m[1]);
+
+        const text = (link.textContent || link.innerText || "").trim();
+        return text || null;
+    };
+
+    const getStatusPageUserId = () => {
+        const search = new URLSearchParams(location.search);
+        const uid = search.get("user_id");
+        if (uid) return uid;
+        // 쿼리 없으면 "내 제출" 페이지 → 로그인 아이디 사용
+        return getLoggedInUserId();
+    };
+
+    const isMyStatusPage = () => {
+        if (!isStatusPage()) return false;
+        const myId = getLoggedInUserId();
+        const pageId = getStatusPageUserId();
+        if (!myId || !pageId) return false;
+        return myId === pageId;
+    };
+
+    // ===========================================================
+    // 6-2) solved.ac 티어 숫자 파싱
+    // ===========================================================
+    const parseTierNumberFromRow = (tr) => {
+        if (!tr) return "NULL";
+        const img = tr.querySelector("img.solvedac-tier");
+        if (!img) return "NULL";
+
+        const src = img.getAttribute("src") || "";
+        const match =
+            src.match(/tier[_-]small[_-]?(\d+)\.(svg|png|webp)$/i) ||
+            src.match(/(\d+)\.(svg|png|webp)$/i);
+        if (!match) return "NULL";
+        return match[1]; // 숫자 문자열
+    };
+
+    // ===========================================================
+    // 6-3) 문제 페이지에서 알고리즘명 파싱해서 저장
+    //  → 이제 "배열"로 저장
+    // ===========================================================
+    const parseAlgorithmNamesOnProblemPage = () => {
+        const root =
+            document.querySelector("#problem_tags") ||
+            document.querySelector(".problem-tags") ||
+            document.querySelector("#problem_tag") ||
+            document.querySelector("#problem_tags_container");
+        if (!root) return null;
+
+        const anchors = Array.from(root.querySelectorAll("a"));
+        const names = anchors
+            .map((a) => (a.textContent || a.innerText || "").trim())
+            .filter(Boolean);
+
+        if (!names.length) return null;
+        return names; // 배열 그대로
+    };
+
+    const saveProblemAlgorithmToStorage = () => {
+        const problemId = getProblemIdFromPath();
+        if (!problemId) return;
+
+        const names = parseAlgorithmNamesOnProblemPage();
+        if (!names || !names.length) return;
+
+        try {
+            chrome.storage.local.get(["algoByProblemId"], (res) => {
+                let map = {};
+                if (res.algoByProblemId && typeof res.algoByProblemId === "object") {
+                    map = res.algoByProblemId;
+                }
+                // 배열로 저장
+                map[problemId] = names;
+
+                chrome.storage.local.set({ algoByProblemId: map }, () => {
+                    console.log(
+                        "[AlgoTrack] stored algorithmNames",
+                        problemId,
+                        names
+                    );
                 });
-            }
+            });
+        } catch (e) {
+            console.error("[AlgoTrack] failed to store algorithmNames", e);
+        }
+    };
+
+    // 문제 페이지일 때: 알고리즘 분류 한번 저장
+    if (isProblemPage()) {
+        window.addEventListener("load", () => {
+            setTimeout(saveProblemAlgorithmToStorage, 200);
         });
-        observer.observe(document.body, { childList: true, subtree: true });
-    } catch (_) {}
+    }
+
+    // ===========================================================
+    // 6-4) status 페이지: 최신 제출 1줄만 검사해서 로그 전송
+    // ===========================================================
+    const parseLatestSubmissionRow = () => {
+        const tableBody = document.querySelector("table tbody");
+        if (!tableBody) return null;
+
+        const tr = tableBody.querySelector("tr:first-child");
+        if (!tr) return null;
+
+        const tds = tr.querySelectorAll("td");
+        if (!tds || tds.length === 0) return null;
+
+        // 1) 제출 번호 (첫 번째 칸)
+        const submissionId = (tds[0].innerText || "").trim();
+        if (!submissionId) return null;
+
+        // 2) 문제 번호 (세 번째 칸: 문제 링크에서 숫자만 추출)
+        let problemId = null;
+        const problemTd = tds[2] || tds[1];
+        if (problemTd) {
+            const link = problemTd.querySelector("a[href*='/problem/']");
+            const rawText =
+                (link && (link.textContent || link.innerText)) ||
+                (problemTd.innerText || problemTd.textContent || "");
+            const m = rawText.trim().match(/(\d+)/);
+            if (m) {
+                const n = Number(m[1]);
+                if (Number.isFinite(n)) problemId = n;
+            }
+        }
+
+        // 3) 결과 텍스트
+        let resultText = "";
+        const resultTd =
+            tr.querySelector("td.result") ||
+            tds[3] ||
+            null;
+        if (resultTd) {
+            resultText = (resultTd.innerText || resultTd.textContent || "").trim();
+        }
+
+        // 4) 날짜(timestamp)
+        const timeAnchor = tr.querySelector("a.real-time-update");
+        if (!timeAnchor) return null;
+        const tsStr = timeAnchor.getAttribute("data-timestamp");
+        const tsInfo = timestampToYmd(tsStr);
+        if (!tsInfo) return null;
+
+        // 5) solved.ac tier 숫자
+        const tierNumber = parseTierNumberFromRow(tr); // 없으면 "NULL"
+
+        return {
+            tr,
+            submissionId,
+            problemId,
+            resultText,
+            solvedAt: tsInfo.date,
+            solvedYmd: tsInfo.ymd,
+            timestampRaw: tsStr,
+            tierNumber,
+        };
+    };
+
+    const checkAndSendLatestSubmission = () => {
+        // 내 status 페이지가 아니면 아무것도 안 함
+        if (!isMyStatusPage()) return;
+
+        const row = parseLatestSubmissionRow();
+        if (!row) return;
+
+        const today = getTodayYmd();
+
+        // 1. 오늘 제출이 아니면 바로 스킵
+        if (row.solvedYmd !== today) return;
+
+        // 2. 결과가 "맞았습니다!!" 인지 확인
+        if (!row.resultText.includes("맞았습니다!!")) return;
+
+        // 3. problemId 파싱 실패 시 전체 스킵
+        if (!row.problemId) {
+            console.log("[AlgoTrack] problemId parse failed, skip");
+            return;
+        }
+
+        try {
+            chrome.storage.local.get(
+                ["processedSubmissions", "algoByProblemId"],
+                (res) => {
+                    const processed = Array.isArray(res.processedSubmissions)
+                        ? res.processedSubmissions
+                        : [];
+
+                    // 이미 처리한 제출이면 바로 스킵 (팝업도 안 뜨게)
+                    if (processed.includes(row.submissionId)) {
+                        return;
+                    }
+
+                    let map = {};
+                    if (res.algoByProblemId && typeof res.algoByProblemId === "object") {
+                        map = res.algoByProblemId;
+                    }
+
+                    const raw = map[String(row.problemId)] || null;
+
+                    // 문자열/배열 모두 케어
+                    let candidates = [];
+                    if (Array.isArray(raw)) {
+                        candidates = raw;
+                    } else if (typeof raw === "string") {
+                        candidates = raw
+                            .split(",")
+                            .map((s) => s.trim())
+                            .filter(Boolean);
+                    }
+
+                    if (!candidates.length) {
+                        console.log(
+                            "[AlgoTrack] algorithmName candidates not found for problem",
+                            row.problemId,
+                            "skip"
+                        );
+                        return;
+                    }
+
+                    // ===== 알고리즘 최종 선택 =====
+                    let finalAlgorithmName = candidates[0]; // 기본값: 첫 번째
+
+                    if (candidates.length > 1) {
+                        const msg =
+                            `이 문제의 알고리즘 분류가 여러 개입니다.\n` +
+                            candidates
+                                .map((name, idx) => `${idx + 1}. ${name}`)
+                                .join("\n") +
+                            `\n\n이번에 푼 알고리즘 번호를 입력해 주세요.\n` +
+                            `(취소하거나 잘못 입력하면 1번으로 기록됩니다.)`;
+
+                        const answer = window.prompt(msg, "1");
+
+                        if (answer != null) {
+                            const idx = Number(answer) - 1;
+                            if (Number.isFinite(idx) && idx >= 0 && idx < candidates.length) {
+                                finalAlgorithmName = candidates[idx];
+                            } else {
+                                console.log(
+                                    "[AlgoTrack] invalid choice, using first algorithm:",
+                                    finalAlgorithmName
+                                );
+                            }
+                        } else {
+                            console.log(
+                                "[AlgoTrack] user canceled choice, using first algorithm:",
+                                finalAlgorithmName
+                            );
+                        }
+                    }
+
+                    const tierNumber = row.tierNumber || "NULL";
+
+                    const payload = {
+                        type: "SUBMIT_RESULT",
+                        verdict: "AC",
+                        submissionId: row.submissionId,
+                        problemId: row.problemId,          // 숫자
+                        solvedDate: row.solvedYmd,         // yyyy-MM-dd
+                        tierNumber: tierNumber,            // 숫자 문자열 or "NULL"
+                        algorithmName: finalAlgorithmName, // ★ 단일 알고리즘명
+                        solvedAt: row.solvedAt.getTime(),  // ms timestamp (옵션)
+                    };
+
+                    try {
+                        chrome.runtime.sendMessage(payload);
+                    } catch (e) {
+                        console.error(
+                            "[AlgoTrack] failed to send submit result",
+                            e
+                        );
+                    }
+
+                    const next = [...processed, row.submissionId];
+                    chrome.storage.local.set(
+                        { processedSubmissions: next },
+                        () => {
+                            console.log(
+                                "[AlgoTrack] submit result sent & stored",
+                                row.submissionId,
+                                payload
+                            );
+                        }
+                    );
+                }
+            );
+        } catch (e) {
+            console.error("[AlgoTrack] error while handling latest submission", e);
+        }
+    };
+
+    // status 페이지일 때: 일정 시간 동안 최신 제출 감시
+    if (isStatusPage()) {
+        setTimeout(checkAndSendLatestSubmission, 300);
+
+        const START = Date.now();
+        const MAX_DURATION_MS = 5 * 60 * 1000; // 5분
+        const INTERVAL_MS = 4000; // 4초
+
+        const intervalId = setInterval(() => {
+            const elapsed = Date.now() - START;
+            if (elapsed > MAX_DURATION_MS) {
+                clearInterval(intervalId);
+                return;
+            }
+            checkAndSendLatestSubmission();
+        }, INTERVAL_MS);
+    }
 
     // ======================================================================
     // 7) ★ 백준 예제 입/출력 파싱 + 이벤트 발사
@@ -331,11 +669,9 @@
         };
         __lastPayload = payload;
 
-        // 문서 이벤트 (패널/콘솔에서 받기 쉬움)
         document.dispatchEvent(
             new CustomEvent("boj:samples", { detail: payload, bubbles: true })
         );
-        // postMessage 브릿지
         try {
             window.postMessage({ type: "BOJ_SAMPLES", payload }, location.origin);
         } catch {}
@@ -347,7 +683,6 @@
         });
     };
 
-    // 초기 2회(로드 직후/로드 완료) + DOM 변화 감지 + 네비게이션
     emitSamples();
     window.addEventListener("load", () => setTimeout(emitSamples, 50));
 
@@ -368,16 +703,14 @@
     // 8) 로그인 성공 postMessage 브릿지 (웹 → 확장앱)
     // =====================================================
     const allowedOrigins = [
-        location.origin,                 // 백준 자기자신
-        "https://algotrack.store",       // 배포 웹 로그인
-        "https://www.algotrack.store",   // 혹시 www 쓸 경우 대비
-        "http://localhost:5173",         // 로컬 개발용 (웹프론트 dev 서버)
+        location.origin,
+        "https://algotrack.store",
+        "https://www.algotrack.store",
+        "http://localhost:5173",
     ];
 
     window.addEventListener("message", (ev) => {
         if (!allowedOrigins.includes(ev.origin)) {
-            // 디버깅용 로그
-            console.log("[AlgoTrack] blocked postMessage from", ev.origin, ev.data);
             return;
         }
 
@@ -385,13 +718,11 @@
         if (!data || !data.type) return;
 
         if (data.type === "REQUEST_SAMPLES") {
-            // 예제 입출력 다시 쏴달라는 요청
             emitSamples();
             return;
         }
 
         if (data.type === "ALGO_LOGIN_SUCCESS") {
-            // 웹 로그인에서 온 토큰/닉네임/프로필 저장
             const { accessToken, nickname, profileImageUrl } = data;
             if (!accessToken) return;
 
