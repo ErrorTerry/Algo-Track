@@ -17,34 +17,38 @@ export default function GoalPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // ✅ 주간 요약 API 호출 함수 (currentDate 기준)
+    const fetchWeekSummary = async (baseDate: Date) => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            // API 요구 형식: 주 시작 날짜 (월요일 기준) yyyy-MM-dd
+            const weekStart = startOfWeek(baseDate, { weekStartsOn: 1 });
+            const formatted = format(weekStart, "yyyy-MM-dd");
+
+            const res = await api.get<WeeklyGoalResponse>(
+                "/api/goal/weekly-summary",
+                {
+                    params: { weekStartDate: formatted },
+                }
+            );
+
+            // 데이터 없으면 null 처리
+            setWeekData(res.data ?? null);
+        } catch (err) {
+            console.error("목표 데이터 불러오기 실패:", err);
+            setError("목표 데이터를 불러오는 데 실패했어요 ㅠㅠ");
+            setWeekData(null);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // currentDate가 바뀔 때마다 주간 요약 API 호출
     useEffect(() => {
-        const fetchWeekSummary = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-
-                // API 요구 형식: 주 시작 날짜 (월요일 기준) yyyy-MM-dd
-                const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-                const formatted = format(weekStart, "yyyy-MM-dd");
-
-                const res = await api.get<WeeklyGoalResponse>(
-                    "/api/goal/weekly-summary",
-                    {
-                        params: { weekStartDate: formatted },
-                    }
-                );
-
-                setWeekData(res.data);
-            } catch (err) {
-                console.error("목표 데이터 불러오기 실패:", err);
-                setError("목표 데이터를 불러오는 데 실패했어요 ㅠㅠ");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchWeekSummary();
+        fetchWeekSummary(currentDate);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentDate]);
 
     return (
@@ -60,7 +64,8 @@ export default function GoalPage() {
             <GoalAddPopup
                 isOpen={isAddOpen}
                 onClose={() => setIsAddOpen(false)}
-                onSubmit={() => {}}
+                // ✅ 팝업에서 저장 성공하면 다시 요약 불러오기
+                onSaved={() => fetchWeekSummary(currentDate)}
                 currentDate={currentDate}
             />
 
