@@ -26,4 +26,11 @@ public interface DailyGoalRepository extends JpaRepository<DailyGoal, Integer> {
             LocalDate goalDate
     );
 
+    // 특정 유저의 월간 daily_goal 조회
+    List<DailyGoal> findByWeeklyGoalUserUserIdAndGoalDateBetween(
+            Integer userId,
+            LocalDate startDate,
+            LocalDate endDate
+    );
+
 }

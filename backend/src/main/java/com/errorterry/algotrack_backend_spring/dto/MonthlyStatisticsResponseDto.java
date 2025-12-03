@@ -21,4 +21,7 @@ public class MonthlyStatisticsResponseDto {
     // 알고리즘 군집 기반 육각형 그래프 데이터
     private List<StatisticsHexagonAxisDto> hexagon;
 
+    // 목표 대비 알고리즘별 통계
+    private List<StatisticsAlgorithmStatDto> algorithmStats;
+
 }
