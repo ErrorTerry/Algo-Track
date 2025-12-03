@@ -49,12 +49,25 @@ const IdeUI = forwardRef<IdeUIHandle, IdeUIProps>((props, ref) => {
 
         if (containerRef.current && !editorRef.current) {
             const model = monaco.editor.createModel("", "python");
+
             editorRef.current = monaco.editor.create(containerRef.current, {
                 model,
                 theme: "vs-dark",
                 automaticLayout: true,
                 fontSize: 14,
+                lineHeight: 22,
                 minimap: { enabled: false },
+                smoothScrolling: true,
+                scrollBeyondLastLine: false,
+                wordWrap: "on",
+                padding: { top: 8, bottom: 8 },
+                scrollbar: {
+                    verticalScrollbarSize: 8,
+                    horizontalScrollbarSize: 8,
+                },
+                // ⭐ 커서/정렬 깨지지 않게 고정폭 폰트 강제
+                fontFamily:
+                    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace",
             });
 
             // ⭐ 코드 변경 이벤트 → 부모에게 알려줌!
@@ -79,7 +92,11 @@ const IdeUI = forwardRef<IdeUIHandle, IdeUIProps>((props, ref) => {
         },
     }));
 
-    return <div ref={containerRef} className="w-full h-full" />;
+    return (
+        <div className="w-full h-full bg-base-900/90 rounded-b-2xl overflow-hidden algo-ide-editor">
+            <div ref={containerRef} className="w-full h-full" />
+        </div>
+    );
 });
 
 export default IdeUI;

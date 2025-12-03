@@ -3,43 +3,54 @@ export default function Login() {
     const handleOpenWebLogin = () => {
         const loginUrl = "https://algotrack.store/login";
 
-        // 확장앱 환경일 때
         if ((globalThis as any).chrome?.tabs) {
             chrome.tabs.create({ url: loginUrl });
         } else {
-            // dev 환경 (로컬에서 테스트)
             window.open(loginUrl, "_blank");
         }
     };
 
     return (
-        <div className="flex flex-col justify-center items-center h-screen space-y-6 text-center">
-            <h1 className="text-4xl font-bold">🧩 Algo Track 🧩</h1>
-            <h2 className="text-lg text-gray-700">
-                로그인하고 오늘의 알고리즘 여정을 시작해보세요
-            </h2>
-
-            <div className="mt-12" />
-
-            {/* 로그인 하러가기 버튼 */}
-            <button
+        <div className="flex flex-col justify-center items-center h-screen bg-base-200/70 p-6">
+            <div
                 className="
-                btn
-                btn-success
-                btn-wide
-                w-[700px]
-                h-[50px]
-                text-3xl
-                rounded-full
-                shadow-lg
-                hover:scale-105
-                transition-transform
-                duration-200
-                "
-                onClick={handleOpenWebLogin}
+                w-full max-w-xl
+                bg-base-100/95
+                rounded-3xl
+                border border-base-300
+                shadow-sm
+                p-10
+                flex flex-col items-center
+                space-y-8
+            "
             >
-                로그인 하러가기
-            </button>
+                {/* 제목 */}
+                <h1 className="text-4xl md:text-5xl font-extrabold text-base-content/90 flex items-center gap-2">
+                    🧩 <span>Algo Track</span> 🧩
+                </h1>
+
+                {/* 서브 텍스트 */}
+                <p className="text-xl md:text-[1.4rem] text-base-content/70 leading-relaxed text-center">
+                    로그인하고 오늘의 알고리즘 여정을 시작해보세요!
+                </p>
+
+                {/* 로그인 하러가기 버튼 */}
+                <button
+                    onClick={handleOpenWebLogin}
+                    className={`
+                        btn bg-blue-500 text-white border-blue-500 shadow-sm
+                        rounded-xl
+                        h-[56px]
+                        text-lg md:text-xl
+                        w-full
+                        gap-2
+                        transition-all duration-150
+                        hover:brightness-110
+                    `}
+                >
+                    로그인 하러가기
+                </button>
+            </div>
         </div>
     );
 }
