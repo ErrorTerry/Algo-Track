@@ -165,7 +165,7 @@ public class StatisticsService {
 
         // ===== 조언(Advice) 계산 =====
         StatisticsMonthlyAdviceResponseDto advice =
-                buildAdvice(userId, yearMonth, monthStart, monthEnd, totalSolved);
+                buildAdvice(userId, yearMonth, monthStart, monthEnd, totalSolved, currentMonthLogs);
 
         // ===== 요일별 평균 풀이 수 통계 계산 =====
         List<StatisticsWeekdayStatDto> weekdayStats =
@@ -185,7 +185,8 @@ public class StatisticsService {
             YearMonth yearMonth,
             LocalDate monthStart,
             LocalDate monthEnd,
-            long totalSolved
+            long totalSolved,
+            List<SolvedLog> currentMonthLogs
     ) {
         // 1) 알고리즘 풀이 비중 기반 조언 + 편향 감지
         String lowestRatioAlgorithmName = null;
@@ -250,10 +251,6 @@ public class StatisticsService {
         Double previousAvgTier = null;
         Double currentAvgTier = null;
         String monthlyTrend = "NONE";
-
-        // 이번 달 solved_log 전체 조회
-        List<SolvedLog> currentMonthLogs =
-                solvedLogStatisticsRepository.findByUserUserIdAndSolvedDateBetween(userId, monthStart, monthEnd);
 
         // (a) 주 단위 평균 티어 계산
         if (!currentMonthLogs.isEmpty()) {
