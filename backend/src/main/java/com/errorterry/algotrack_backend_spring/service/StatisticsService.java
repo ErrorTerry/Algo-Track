@@ -71,7 +71,7 @@ public class StatisticsService {
             "일", "월", "화", "수", "목", "금", "토"
     };
 
-    // LocalData -> 0=일, 1=월, ..., 6=토 인덱스 변환
+    // LocalDate -> 0=일, 1=월, ..., 6=토 인덱스 변환
     private int toWeekdayIndex(LocalDate date) {
         int v = date.getDayOfWeek().getValue();
         return v % 7;   // 1~6 -> 그대로, 7(SUN) -> 0
