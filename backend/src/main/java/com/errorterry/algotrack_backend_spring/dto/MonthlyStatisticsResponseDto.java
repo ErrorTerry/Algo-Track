@@ -18,4 +18,7 @@ public class MonthlyStatisticsResponseDto {
     // 요일별 평균 풀이 수 통계
     private List<StatisticsWeekdayStatDto> weekdayStats;
 
+    // 알고리즘 군집 기반 육각형 그래프 데이터
+    private List<StatisticsHexagonAxisDto> hexagon;
+
 }

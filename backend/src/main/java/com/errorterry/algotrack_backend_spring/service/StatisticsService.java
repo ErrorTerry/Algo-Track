@@ -6,6 +6,7 @@ import com.errorterry.algotrack_backend_spring.dto.MonthlyStatisticsResponseDto;
 import com.errorterry.algotrack_backend_spring.dto.StatisticsMonthlyAdviceResponseDto;
 import com.errorterry.algotrack_backend_spring.dto.StatisticsMonthlySummaryResponseDto;
 import com.errorterry.algotrack_backend_spring.dto.StatisticsWeekdayStatDto;
+import com.errorterry.algotrack_backend_spring.dto.StatisticsHexagonAxisDto;
 import com.errorterry.algotrack_backend_spring.repository.AlgorithmRepository;
 import com.errorterry.algotrack_backend_spring.repository.SolvedLogStatisticsRepository;
 import lombok.RequiredArgsConstructor;
@@ -76,6 +77,299 @@ public class StatisticsService {
         int v = date.getDayOfWeek().getValue();
         return v % 7;   // 1~6 -> 그대로, 7(SUN) -> 0
     }
+
+    // ===== 군집/축 정의 =====
+    private enum HexagonAxis {
+        IMPLEMENTATION("IMPLEMENTATION", "구현·시뮬레이션·문자열"),
+        DATA_STRUCTURE("DATA_STRUCTURE", "자료구조·트리"),
+        GRAPH("GRAPH", "그래프·탐색·최단경로"),
+        GREEDY("GREEDY", "그리디·투 포인터"),
+        DP("DP", "DP·조합론"),
+        MATH("MATH", "수학·정수론·기하");
+
+        private final String code;
+        private final String label;
+
+        HexagonAxis(String code, String label) {
+            this.code = code;
+            this.label = label;
+        }
+
+        public String getCode() {
+            return code;
+        }
+
+        public String getLabel() {
+            return label;
+        }
+    }
+
+    // 1. 구현·시뮬레이션·문자열
+    private static final Set<String> IMPLEMENTATION_TAGS = Set.of(
+            "2-sat",
+            "aliens 트릭",
+            "bulldozer 트릭",
+            "kmp",
+            "utf-8 입력 처리",
+            "z",
+            "경사 하강법",
+            "구현",
+            "다이얼",
+            "다중 대입값 계산",
+            "담금질 기법",
+            "도형에서의 불 연산",
+            "라빈–카프",
+            "런타임 전의 전처리",
+            "로프",
+            "많은 조건 분기",
+            "매내처",
+            "무작위화",
+            "문자열",
+            "배타적 논리합 기저 (gf(2))",
+            "백트래킹",
+            "보이어–무어 다수결 투표",
+            "불변량 찾기",
+            "브루트포스 알고리즘",
+            "비트 집합을 이용한 최장 공통 부분 수열 최적화",
+            "비트마스킹",
+            "순열 사이클 분할",
+            "시뮬레이션",
+            "쌍대성",
+            "아호-코라식",
+            "애드 혹",
+            "역추적",
+            "재귀",
+            "접미사 배열과 lcp 배열",
+            "정규 표현식",
+            "차분 공격",
+            "차수열",
+            "춤추는 링크",
+            "크누스 x",
+            "파싱",
+            "플러드 필",
+            "하켄부시 게임",
+            "함수 개형을 이용한 최적화",
+            "해 구성하기",
+            "휴리스틱",
+            "히르쉬버그"
+    );
+
+    // 2. 자료구조·트리
+    private static final Set<String> DATA_STRUCTURE_TAGS = Set.of(
+            "heavy-light 분할",
+            "느리게 갱신되는 세그먼트 트리",
+            "다차원 세그먼트 트리",
+            "데카르트 트리",
+            "덱",
+            "덱을 이용한 구간 최댓값 트릭",
+            "레드-블랙 트리",
+            "리–차오 트리",
+            "링크/컷 트리",
+            "머지 소트 트리",
+            "분리 집합",
+            "비트 집합",
+            "세그먼트 트리",
+            "세그먼트 트리 비츠",
+            "센트로이드",
+            "센트로이드 분할",
+            "스택",
+            "스플레이 트리",
+            "연결 리스트",
+            "우선순위 큐",
+            "자료 구조",
+            "작은 집합에서 큰 집합으로 합치는 테크닉",
+            "접미사 트리",
+            "집합과 맵",
+            "최소 공통 조상",
+            "큐",
+            "키네틱 세그먼트 트리",
+            "탑 트리",
+            "트라이",
+            "트리",
+            "트리 동형 사상",
+            "트리 분할",
+            "트리 압축",
+            "트리를 사용한 집합과 맵",
+            "트리의 지름",
+            "퍼시스턴트 세그먼트 트리",
+            "해시를 사용한 집합과 맵",
+            "해싱",
+            "회문 트리",
+            "희소 배열"
+    );
+
+    // 3. 그래프·탐색·최단경로
+    private static final Set<String> GRAPH_TAGS = Set.of(
+            "0-1 너비 우선 탐색",
+            "강한 연결 요소",
+            "격자 그래프",
+            "그래프 이론",
+            "그래프 탐색",
+            "깊이 우선 탐색",
+            "너비 우선 탐색",
+            "단절점과 단절선",
+            "데이크스트라",
+            "도미네이터 트리",
+            "방향 비순환 그래프",
+            "벨만–포드",
+            "서큘레이션",
+            "선분 교차 판정",
+            "선인장",
+            "스토어–바그너",
+            "쌍대 그래프",
+            "양방향 탐색",
+            "오일러 경로",
+            "오일러 경로 테크닉",
+            "오프라인 동적 연결성 판정",
+            "위상 정렬",
+            "유향 최소 스패닝 트리",
+            "이분 그래프",
+            "이분 매칭",
+            "이중 연결 요소",
+            "최단 경로",
+            "최대 유량",
+            "최대 유량 최소 컷 정리",
+            "최소 비용 최대 유량",
+            "최소 스패닝 트리",
+            "평면 그래프",
+            "플로이드–워셜",
+            "함수형 그래프",
+            "헝가리안",
+            "현 그래프"
+    );
+
+    // 4. 그리디·투 포인터
+    private static final Set<String> GREEDY_TAGS = Set.of(
+            "cdq 분할 정복",
+            "mo's",
+            "값 / 좌표 압축",
+            "그리디 알고리즘",
+            "단조 큐를 이용한 최적화",
+            "두 포인터",
+            "매개 변수 탐색",
+            "병렬 이분 탐색",
+            "분할 정복",
+            "분할 정복을 사용한 최적화",
+            "분할 정복을 이용한 거듭제곱",
+            "삼분 탐색",
+            "스위핑",
+            "슬라이딩 윈도우",
+            "이분 탐색",
+            "정렬",
+            "제곱근 분할법",
+            "중간에서 만나기",
+            "차분 배열 트릭",
+            "오프라인 쿼리"
+    );
+
+    // 5. DP·조합론
+    private static final Set<String> DP_TAGS = Set.of(
+            "가장 긴 증가하는 부분 수열 문제",
+            "게임 이론",
+            "다이나믹 프로그래밍",
+            "덱을 이용한 다이나믹 프로그래밍",
+            "린드스트롬–게셀–비엔노 보조정리",
+            "매트로이드",
+            "배낭 문제",
+            "번사이드 보조정리",
+            "부분집합의 합 다이나믹 프로그래밍",
+            "비트필드를 이용한 다이나믹 프로그래밍",
+            "생성 함수",
+            "스프라그–그런디 정리",
+            "안정 결혼 문제",
+            "외판원 순회 문제",
+            "일반적인 매칭",
+            "자릿수를 이용한 다이나믹 프로그래밍",
+            "조합론",
+            "최대 부분 배열 문제",
+            "최장 공통 부분 수열 문제",
+            "커넥션 프로파일을 이용한 다이나믹 프로그래밍",
+            "크누스 최적화",
+            "트리에서의 다이나믹 프로그래밍",
+            "트리에서의 전방향 다이나믹 프로그래밍",
+            "포함 배제의 원리",
+            "홀의 결혼 정리"
+    );
+
+    // 6. 수학·정수론·기하
+    private static final Set<String> MATH_TAGS = Set.of(
+            "3차원 기하학",
+            "4차원 이상의 기하학",
+            "가우스 소거법",
+            "각도 정렬",
+            "고속 푸리에 변환",
+            "그린 정리",
+            "기댓값의 선형성",
+            "기하학",
+            "누적 합",
+            "다각형의 넓이",
+            "다항식 보간법",
+            "다항식을 이용한 선형점화식 계산",
+            "델로네 삼각분할",
+            "뤼카 정리",
+            "모듈로 곱셈 역원",
+            "뫼비우스 반전 공식",
+            "물리학",
+            "미적분학",
+            "밀러–라빈 소수 판별법",
+            "반평면 교집합",
+            "벌리캠프–매시",
+            "베이즈 정리",
+            "보로노이 다이어그램",
+            "볼록 껍질",
+            "볼록 껍질을 이용한 최적화",
+            "볼록 다각형 내부의 점 판정",
+            "비둘기집 원리",
+            "사칙연산",
+            "생일 문제",
+            "선형 계획법",
+            "선형대수학",
+            "소수 판정",
+            "소인수분해",
+            "수치해석",
+            "수학",
+            "에라토스테네스의 체",
+            "오목 다각형 내부의 점 판정",
+            "오일러 지표 (χ=v-e+f)",
+            "오일러 피 함수",
+            "유리 등차수열의 내림 합",
+            "유클리드 호제법",
+            "이산 로그",
+            "이산 제곱근",
+            "임의 정밀도 / 큰 수 연산",
+            "정수론",
+            "조화수",
+            "중국인의 나머지 정리",
+            "지수승강 보조정리",
+            "최소 외접원",
+            "통계학",
+            "페르마의 소정리",
+            "폴라드 로",
+            "피사노 주기",
+            "피타고라스 정리",
+            "픽의 정리",
+            "홀짝성",
+            "확률론",
+            "확장 유클리드 호제법",
+            "회전하는 캘리퍼스"
+    );
+
+    // 알고리즘 이름 → 군집 축 매핑 (없으면 1번 군집(IMPLEMENTATION)으로 처리)
+    private HexagonAxis resolveAxisByAlgorithmName(String algorithmName) {
+        if (algorithmName == null) {
+            return HexagonAxis.IMPLEMENTATION;
+        }
+        if (IMPLEMENTATION_TAGS.contains(algorithmName)) return HexagonAxis.IMPLEMENTATION;
+        if (DATA_STRUCTURE_TAGS.contains(algorithmName)) return HexagonAxis.DATA_STRUCTURE;
+        if (GRAPH_TAGS.contains(algorithmName)) return HexagonAxis.GRAPH;
+        if (GREEDY_TAGS.contains(algorithmName)) return HexagonAxis.GREEDY;
+        if (DP_TAGS.contains(algorithmName)) return HexagonAxis.DP;
+        if (MATH_TAGS.contains(algorithmName)) return HexagonAxis.MATH;
+
+        // 6개 군집(226개)에 속하지 않으면 1번 군집으로 카운트
+        return HexagonAxis.IMPLEMENTATION;
+    }
+
 
 
     // MonthlyStatisticsResponseDto
@@ -171,11 +465,16 @@ public class StatisticsService {
         List<StatisticsWeekdayStatDto> weekdayStats =
                 buildWeekdayStats(yearMonth, currentMonthLogs);
 
-        // ===== summary + advice 묶어서 최종 DTO 반환 =====
+        // ===== 육각형 그래프용 통계 계산 =====
+        List<StatisticsHexagonAxisDto> hexagon =
+                buildHexagonStats(totalSolved, algorithmStats);
+
+        // ===== summary + advice + weekdayStats + hexagon 묶어서 최종 DTO 반환 =====
         return MonthlyStatisticsResponseDto.builder()
                 .summary(summary)
                 .advice(advice)
                 .weekdayStats(weekdayStats)
+                .hexagon(hexagon)
                 .build();
     }
 
@@ -398,6 +697,61 @@ public class StatisticsService {
         }
 
         return stats;
+    }
+
+    // 육각형 그래프용 통계 빌더
+    private List<StatisticsHexagonAxisDto> buildHexagonStats(
+            long totalSolved,
+            List<SolvedLogStatisticsRepository.AlgorithmCountProjection> algorithmStats
+    ) {
+        // 축별 solved 카운트 초기화
+        EnumMap<HexagonAxis, Long> axisSolvedMap = new EnumMap<>(HexagonAxis.class);
+        for (HexagonAxis axis : HexagonAxis.values()) {
+            axisSolvedMap.put(axis, 0L);
+        }
+
+        if (totalSolved > 0 && algorithmStats != null && !algorithmStats.isEmpty()) {
+            // algorithmId -> algorithmName 매핑
+            Set<Integer> algorithmIds = algorithmStats.stream()
+                    .map(SolvedLogStatisticsRepository.AlgorithmCountProjection::getAlgorithmId)
+                    .collect(Collectors.toSet());
+
+            Map<Integer, String> algorithmNameMap = algorithmRepository.findAllById(algorithmIds)
+                    .stream()
+                    .collect(Collectors.toMap(
+                            Algorithm::getAlgorithmId,
+                            Algorithm::getAlgorithmName
+                    ));
+
+            // 알고리즘별 solvedCount를 군집 축으로 모으기
+            for (SolvedLogStatisticsRepository.AlgorithmCountProjection stat : algorithmStats) {
+                String algorithmName = algorithmNameMap.get(stat.getAlgorithmId());
+                HexagonAxis axis = resolveAxisByAlgorithmName(algorithmName);
+                long current = axisSolvedMap.getOrDefault(axis, 0L);
+                axisSolvedMap.put(axis, current + stat.getSolvedCount());
+            }
+        }
+
+        // 축별 비율 계산 및 DTO 생성
+        List<StatisticsHexagonAxisDto> result = new ArrayList<>();
+
+        for (HexagonAxis axis : HexagonAxis.values()) {
+            long solved = axisSolvedMap.get(axis);
+            double ratio = (totalSolved > 0)
+                    ? (solved * 100.0 / (double) totalSolved)
+                    : 0.0;
+
+            StatisticsHexagonAxisDto dto = StatisticsHexagonAxisDto.builder()
+                    .axis(axis.getCode())
+                    .label(axis.getLabel())
+                    .solved(solved)
+                    .ratio(ratio)
+                    .build();
+
+            result.add(dto);
+        }
+
+        return result;
     }
 
 
