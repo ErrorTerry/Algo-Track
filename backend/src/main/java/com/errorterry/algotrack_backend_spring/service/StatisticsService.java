@@ -1,13 +1,11 @@
 package com.errorterry.algotrack_backend_spring.service;
 
 import com.errorterry.algotrack_backend_spring.domain.Algorithm;
+import com.errorterry.algotrack_backend_spring.domain.DailyGoal;
 import com.errorterry.algotrack_backend_spring.domain.SolvedLog;
-import com.errorterry.algotrack_backend_spring.dto.MonthlyStatisticsResponseDto;
-import com.errorterry.algotrack_backend_spring.dto.StatisticsMonthlyAdviceResponseDto;
-import com.errorterry.algotrack_backend_spring.dto.StatisticsMonthlySummaryResponseDto;
-import com.errorterry.algotrack_backend_spring.dto.StatisticsWeekdayStatDto;
-import com.errorterry.algotrack_backend_spring.dto.StatisticsHexagonAxisDto;
+import com.errorterry.algotrack_backend_spring.dto.*;
 import com.errorterry.algotrack_backend_spring.repository.AlgorithmRepository;
+import com.errorterry.algotrack_backend_spring.repository.DailyGoalRepository;
 import com.errorterry.algotrack_backend_spring.repository.SolvedLogStatisticsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,6 +23,7 @@ public class StatisticsService {
 
     private final SolvedLogStatisticsRepository solvedLogStatisticsRepository;
     private final AlgorithmRepository algorithmRepository;
+    private final DailyGoalRepository dailyGoalRepository;
 
     // 티어 문자열 우선순위 / 점수 매핑
     private static final List<String> TIER_ORDER = List.of(
@@ -469,12 +468,17 @@ public class StatisticsService {
         List<StatisticsHexagonAxisDto> hexagon =
                 buildHexagonStats(totalSolved, algorithmStats);
 
-        // ===== summary + advice + weekdayStats + hexagon 묶어서 최종 DTO 반환 =====
+        // ===== 목표 대비 알고리즘별 통계 계산 =====
+        List<StatisticsAlgorithmStatDto> algorithmStatDtos =
+                buildAlgorithmStats(userId, monthStart, monthEnd);
+
+        // ===== summary + advice + weekdayStats + hexagon + algorithmStats 묶어서 최종 DTO 반환 =====
         return MonthlyStatisticsResponseDto.builder()
                 .summary(summary)
                 .advice(advice)
                 .weekdayStats(weekdayStats)
                 .hexagon(hexagon)
+                .algorithmStats(algorithmStatDtos)
                 .build();
     }
 
@@ -754,5 +758,69 @@ public class StatisticsService {
         return result;
     }
 
+    // 목표 대비 알고리즘별 통계 빌더
+    private List<StatisticsAlgorithmStatDto> buildAlgorithmStats(
+            Integer userId,
+            LocalDate monthStart,
+            LocalDate monthEnd
+    ) {
+        // 인증된 사용자 기준의 daily_goal만 사용
+        List<DailyGoal> dailyGoals = dailyGoalRepository
+                .findByWeeklyGoalUserUserIdAndGoalDateBetween(userId, monthStart, monthEnd);
+
+        if (dailyGoals == null || dailyGoals.isEmpty()) {
+            return List.of();
+        }
+
+        // 알고리즘명 기준 집계: goal 합계, solved 합계
+        Map<String, long[]> statMap = new HashMap<>();
+        // value: [0] = totalGoalCount, [1] = totalSolvedCount
+
+        for (DailyGoal dailyGoal : dailyGoals) {
+            String algorithmName = null;
+            if (dailyGoal.getAlgorithm() != null) {
+                algorithmName = dailyGoal.getAlgorithm().getAlgorithmName();
+            }
+            if (algorithmName == null) {
+                algorithmName = "Unknown"; // 혹시 null이면 임시 이름
+            }
+
+            long goal = dailyGoal.getGoalCount() != null ? dailyGoal.getGoalCount() : 0;
+            long solved = dailyGoal.getSolveCount() != null ? dailyGoal.getSolveCount() : 0;
+
+            long[] agg = statMap.computeIfAbsent(algorithmName, k -> new long[2]);
+            agg[0] += goal;
+            agg[1] += solved;
+        }
+
+        List<StatisticsAlgorithmStatDto> result = new ArrayList<>();
+
+        for (Map.Entry<String, long[]> entry : statMap.entrySet()) {
+            String algorithmName = entry.getKey();
+            long totalGoal = entry.getValue()[0];
+            long totalSolved = entry.getValue()[1];
+
+            double ratio = (totalGoal > 0)
+                    ? (totalSolved * 100.0 / (double) totalGoal)
+                    : 0.0;
+
+            StatisticsAlgorithmStatDto dto = StatisticsAlgorithmStatDto.builder()
+                    .algorithmName(algorithmName)
+                    .goal(totalGoal)
+                    .solved(totalSolved)
+                    .ratio(ratio)
+                    .build();
+
+            result.add(dto);
+        }
+
+        // 알고리즘명 오름차순 정렬
+        result.sort(Comparator.comparing(
+                StatisticsAlgorithmStatDto::getAlgorithmName,
+                Comparator.nullsLast(String::compareTo)
+        ));
+
+        return result;
+    }
 
 }
