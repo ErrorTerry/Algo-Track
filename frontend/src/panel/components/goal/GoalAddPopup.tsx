@@ -7,9 +7,7 @@ import { ko } from "date-fns/locale";
 interface GoalAddPopupProps {
     isOpen: boolean;
     onClose: () => void;
-    // 저장 후 부모에서 요약 다시 불러오고 싶을 때 사용
     onSaved?: () => void;
-    // 헤더에서 쓰는 currentDate랑 같은 값 내려주면 됨
     currentDate: Date;
 }
 
@@ -36,25 +34,42 @@ type SelectedGoal = {
     id: number;
     algorithmId: number;
     algorithmName: string;
-    // 주간 총 목표
     weeklyCount: number;
-    // 일간 분배 (월~일, length = 7)
     dailyCounts: number[];
+    /** 서버에서 이미 저장된 기존 주간 목표인지 여부 */
+    isLocked?: boolean;
 };
 
-// GoalHeader의 WEEK 라벨과 동일한 형식
+// GET /api/goal/weekly-summary 응답 형태
+type WeeklySummaryResponse = {
+    weekStartDate: string;
+    algorithms: {
+        algorithmId: number;
+        algorithmName: string;
+        weeklyCount: number;
+        dailyPlan: number[];
+    }[];
+    dailySolved: number[];
+};
+
 function formatWeekRangeLabel(date: Date) {
-    const start = startOfWeek(date, { weekStartsOn: 1 }); // 월요일 시작
+    const start = startOfWeek(date, { weekStartsOn: 1 });
     const end = endOfWeek(date, { weekStartsOn: 1 });
 
-    const left = format(start, "yy년 MM월 dd일", { locale: ko });
+    const sameYear = start.getFullYear() === end.getFullYear();
+    const sameMonth = start.getMonth() === end.getMonth();
 
-    const right =
-        start.getMonth() === end.getMonth()
-            ? format(end, "MM월 dd일", { locale: ko })
-            : format(end, "yy년 MM월 dd일", { locale: ko });
+    if (sameYear) {
+        const left = format(start, "yyyy년 MM월 dd일", { locale: ko });
+        const right = sameMonth
+            ? format(end, "dd일", { locale: ko })
+            : format(end, "MM월 dd일", { locale: ko });
+        return `${left} ~ ${right}`;
+    }
 
-    return `${left} ~ ${right}`; // 👉 25년 11월 24일 ~ 11월 30일
+    const left = format(start, "yyyy년 MM월 dd일", { locale: ko });
+    const right = format(end, "yyyy년 MM월 dd일", { locale: ko });
+    return `${left} ~ ${right}`;
 }
 
 function createEvenDailyCounts(total: number): number[] {
@@ -81,26 +96,20 @@ export default function GoalAddPopup({
                                          onSaved,
                                          currentDate,
                                      }: GoalAddPopupProps) {
-
-
-    // 알고리즘 목록
     const [algorithms, setAlgorithms] = useState<Algorithm[]>([]);
     const [algorithmSearch, setAlgorithmSearch] = useState("");
-    const [selectedAlgorithmId, setSelectedAlgorithmId] = useState<number | null>(null);
+    const [selectedAlgorithmId, setSelectedAlgorithmId] =
+        useState<number | null>(null);
 
-    // 추가용 인풋 (주간 문제 수)
     const [weeklyCountInput, setWeeklyCountInput] = useState(3);
-
-    // 사용자가 추가한 목표 리스트 (주간 + 일간)
     const [goals, setGoals] = useState<SelectedGoal[]>([]);
 
-    // 일간 분배 방식
-    const [distributionMode, setDistributionMode] = useState<"AUTO" | "MANUAL">("AUTO");
+    const [distributionMode, setDistributionMode] =
+        useState<"AUTO" | "MANUAL">("AUTO");
 
-    // 저장 중 여부
     const [saving, setSaving] = useState(false);
 
-    // 팝업 열릴 때 알고리즘 목록 로딩
+    // 1) 알고리즘 목록 불러오기
     useEffect(() => {
         if (!isOpen) return;
 
@@ -118,31 +127,104 @@ export default function GoalAddPopup({
         })();
     }, [isOpen]);
 
-    // 검색어로 필터링
     const filteredAlgorithms = useMemo(
         () =>
             algorithms.filter((a) =>
-                a.algorithmName.toLowerCase().includes(algorithmSearch.toLowerCase())
+                a.algorithmName
+                    .toLowerCase()
+                    .includes(algorithmSearch.toLowerCase())
             ),
         [algorithms, algorithmSearch]
     );
 
-    // 주간 목표 리스트에 알고리즘 추가/수정
+    // 검색/리스트 변경 시 선택 알고리즘 보정
+    useEffect(() => {
+        if (!isOpen) return;
+
+        if (filteredAlgorithms.length === 0) {
+            setSelectedAlgorithmId(null);
+            return;
+        }
+
+        const existsInFiltered = filteredAlgorithms.some(
+            (a) => a.algorithmId === selectedAlgorithmId
+        );
+
+        if (!existsInFiltered) {
+            setSelectedAlgorithmId(filteredAlgorithms[0].algorithmId);
+        }
+    }, [filteredAlgorithms, isOpen, selectedAlgorithmId]);
+
+    // 2) 이번 주 기존 주간 목표 불러오기 (있는 경우 isLocked: true로 세팅)
+    useEffect(() => {
+        if (!isOpen) return;
+        if (!algorithms.length) return;
+
+        const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+        const weekStartDate = format(weekStart, "yyyy-MM-dd");
+
+        (async () => {
+            try {
+                const res = await api.get<WeeklySummaryResponse>(
+                    "/api/goal/weekly-summary",
+                    {
+                        params: { weekStartDate },
+                    }
+                );
+
+                const serverAlgorithms = res.data?.algorithms ?? [];
+
+                if (!serverAlgorithms.length) {
+                    // 이번 주 목표가 아예 없음 → 완전 초기화
+                    setGoals([]);
+                    setWeeklyCountInput(3);
+                    setAlgorithmSearch("");
+                    setDistributionMode("AUTO");
+                    return;
+                }
+
+                const existingGoals: SelectedGoal[] = serverAlgorithms.map(
+                    (item, idx) => ({
+                        id: idx + 1,
+                        algorithmId: item.algorithmId,
+                        algorithmName: item.algorithmName,
+                        weeklyCount: item.weeklyCount,
+                        dailyCounts: item.dailyPlan ?? Array(7).fill(0),
+                        isLocked: true, // ✅ 기존 주간 목표
+                    })
+                );
+
+                setGoals(existingGoals);
+                setSelectedAlgorithmId(existingGoals[0]?.algorithmId ?? null);
+            } catch (e: any) {
+                console.error("이번 주 주간 목표 요약 불러오기 실패", e);
+                // 에러 시에는 일단 새로 작성 모드로 둔다
+                setGoals([]);
+            }
+        })();
+    }, [isOpen, algorithms, currentDate]);
+
     const handleAddGoal = () => {
         if (!selectedAlgorithmId) return;
         if (weeklyCountInput <= 0) return;
 
-        const algo = algorithms.find((a) => a.algorithmId === selectedAlgorithmId);
+        const algo = algorithms.find(
+            (a) => a.algorithmId === selectedAlgorithmId
+        );
         if (!algo) return;
 
         setGoals((prev) => {
-            const existed = prev.find((g) => g.algorithmId === selectedAlgorithmId);
             const newDaily = createEvenDailyCounts(weeklyCountInput);
 
-            // 이미 있으면 업데이트
-            if (existed) {
+            // 이미 "편집 가능한" 같은 알고리즘이 있다면 그 친구만 업데이트
+            const existedEditable = prev.find(
+                (g) =>
+                    g.algorithmId === selectedAlgorithmId && !g.isLocked
+            );
+
+            if (existedEditable) {
                 return prev.map((g) =>
-                    g.algorithmId === selectedAlgorithmId
+                    g.id === existedEditable.id
                         ? {
                             ...g,
                             weeklyCount: weeklyCountInput,
@@ -152,28 +234,33 @@ export default function GoalAddPopup({
                 );
             }
 
-            // 새로 추가
-            return [
-                ...prev,
-                {
-                    id: Date.now(),
-                    algorithmId: algo.algorithmId,
-                    algorithmName: algo.algorithmName,
-                    weeklyCount: weeklyCountInput,
-                    dailyCounts: newDaily,
-                },
-            ];
+            // 기존 서버 값(isLocked)은 그대로 두고,
+            // 새로 추가하는 목표는 isLocked: false 로 별도 row 추가
+            const newGoal: SelectedGoal = {
+                id: Date.now(),
+                algorithmId: algo.algorithmId,
+                algorithmName: algo.algorithmName,
+                weeklyCount: weeklyCountInput,
+                dailyCounts: newDaily,
+                isLocked: false,
+            };
+
+            return [...prev, newGoal];
         });
     };
 
     const handleRemoveGoal = (id: number) => {
-        setGoals((prev) => prev.filter((g) => g.id !== id));
+        setGoals((prev) =>
+            prev.filter((g) => g.id !== id || g.isLocked)
+        ); // isLocked는 삭제 불가
     };
 
     const handleChangeWeeklyCount = (id: number, value: number) => {
         setGoals((prev) =>
             prev.map((g) => {
                 if (g.id !== id) return g;
+                if (g.isLocked) return g; // 기존 목표는 수정 불가
+
                 const weeklyCount = Math.max(0, value);
 
                 const dailyCounts =
@@ -186,7 +273,6 @@ export default function GoalAddPopup({
         );
     };
 
-    // 일간 목표 숫자 조절 (MANUAL 모드에서 사용)
     const handleChangeDailyCell = (
         goalId: number,
         dayIndex: number,
@@ -195,6 +281,7 @@ export default function GoalAddPopup({
         setGoals((prev) =>
             prev.map((g) => {
                 if (g.id !== goalId) return g;
+                if (g.isLocked) return g; // 기존 목표는 수정 불가
 
                 const dailyCounts = [...g.dailyCounts];
                 dailyCounts[dayIndex] = Math.max(0, newValue);
@@ -205,20 +292,21 @@ export default function GoalAddPopup({
         );
     };
 
-    // 자동 분배 모드일 때 전체 재분배
     const applyAutoDistribution = () => {
         setGoals((prev) =>
-            prev.map((g) => ({
-                ...g,
-                dailyCounts: createEvenDailyCounts(g.weeklyCount),
-            }))
+            prev.map((g) =>
+                g.isLocked
+                    ? g
+                    : {
+                        ...g,
+                        dailyCounts: createEvenDailyCounts(g.weeklyCount),
+                    }
+            )
         );
     };
 
-    // 주간 총합
     const totalWeeklyCount = goals.reduce((sum, g) => sum + g.weeklyCount, 0);
 
-    // 요일 합계
     const dayTotals = (() => {
         const arr = Array(DAY_KEYS.length).fill(0);
         goals.forEach((g) => {
@@ -229,12 +317,13 @@ export default function GoalAddPopup({
         return arr;
     })();
 
-    // ✅ 실제 백엔드로 보내는 부분
     const handleSubmit = async () => {
-        const validGoals = goals.filter((g) => g.weeklyCount > 0);
+        // ✅ 서버는 누적만 하니까, 새로 추가/수정한 것만 보낸다
+        const validGoals = goals.filter(
+            (g) => !g.isLocked && g.weeklyCount > 0
+        );
         if (!validGoals.length) return;
 
-        // weekStartDate: currentDate 기준 그 주 월요일
         const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
         const weekStartDate = format(weekStart, "yyyy-MM-dd");
 
@@ -242,7 +331,6 @@ export default function GoalAddPopup({
             weekStartDate,
             algorithms: validGoals.map((g) => ({
                 algorithmId: g.algorithmId,
-                // dailyPlan 길이 7 (월~일), 0이면 그 요일 목표 없음
                 dailyPlan: [...g.dailyCounts],
             })),
         };
@@ -252,14 +340,10 @@ export default function GoalAddPopup({
             const res = await api.post("/api/goal/weekly", payload);
             console.log("주간 목표 저장 성공:", res.data);
 
-            // 부모에게 알리기 (요약 다시 불러오도록)
             onSaved?.();
-
-            // 상태 초기화
-            setGoals([]);
+            // 닫고, 다시 열면 weekly-summary로 최신값을 다시 읽어올 거라 여기선 비우지 않아도 됨
             setWeeklyCountInput(3);
             setAlgorithmSearch("");
-
             onClose();
         } catch (e) {
             console.error("주간 목표 저장 실패", e);
@@ -276,58 +360,100 @@ export default function GoalAddPopup({
     const weekLabel = formatWeekRangeLabel(currentDate);
 
     return (
-        <div className="fixed inset-0 z-[99999999] flex items-center justify-center bg-black/40">
-            <div className="bg-base-100 rounded-2xl shadow-xl px-8 py-6 w-[960px] max-h-[90vh] overflow-y-auto relative">
+        <div className="fixed inset-0 z-[99999999] flex items-center justify-center bg-black/40 backdrop-blur-[2px] px-4">
+            {/* 전체 기본 폰트: 한 단계 업 (text-lg / md:text-xl) */}
+            <div className="w-full max-w-6xl bg-base-100 rounded-3xl shadow-2xl border border-base-300/70 px-8 py-7 max-h-[90vh] overflow-y-auto relative text-lg md:text-xl">
                 {/* 닫기 버튼 */}
                 <button
                     type="button"
-                    className="absolute right-4 top-4 text-xl text-gray-400 hover:text-gray-700"
+                    className="absolute right-4 top-4 text-2xl text-base-content/40 hover:text-base-content/70 transition"
                     onClick={onClose}
                 >
                     ✕
                 </button>
 
                 {/* 제목 */}
-                <div className="mb-6">
-                    <h2 className="text-center text-2xl font-extrabold">
-                        🌟 목표 설정 🌟
+                <div className="mb-6 text-center">
+                    <h2 className="text-2xl md:text-3xl font-extrabold flex items-center justify-center gap-2">
+                        🌟 <span>주간 목표 설정</span> 🌟
                     </h2>
-                    <p className="mt-2 text-center text-md text-gray-500">
-                        이번 주에 풀고 싶은 알고리즘별 문제 수를 정하고, 요일별로 나눠보세요 !
+                    <p className="mt-3 text-2xl md:text-2xl text-base-content/60">
+                        이번 주에 풀고 싶은 알고리즘별 문제 수를 정하고, 요일별로 나눠보세요.
                     </p>
                 </div>
 
                 {/* ====================== 상단: 주간 목표 설정 ====================== */}
                 <section className="mb-8">
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
                         {/* 왼쪽: 타이틀 + 주간 범위 */}
-                        <div className="flex items-baseline gap-2">
-                            <h3 className="text-lg font-bold">📘 주간 목표 설정</h3>
-                            <span className="text-md text-gray-500">{weekLabel}</span>
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <h3 className="text-xl md:text-2xl font-bold flex items-center gap-1">
+                                    📘 <span>주간 목표</span>
+                                </h3>
+                                <span
+                                    className="
+                                        inline-flex items-center
+                                        rounded-full border border-blue-100
+                                        bg-blue-50 text-blue-600
+                                        px-3 py-1.5
+                                        text-sm md:text-base
+                                        font-semibold
+                                    "
+                                >
+                                    {weekLabel}
+                                </span>
+                            </div>
+                            <span className="text-xl md:text-xl text-base-content/70 leading-snug">
+                                원하는 알고리즘을 선택하고 이번 주 목표 개수를 설정하세요.
+                            </span>
                         </div>
 
                         {/* 오른쪽: 총 문제 수 */}
-                        <span className="text-xl text-gray-500">
-                            총 {totalWeeklyCount}문제
-                        </span>
+                        <div
+                            className="
+                                inline-flex items-baseline
+                                rounded-2xl bg-base-200/80
+                                px-5 py-3
+                                text-base md:text-lg
+                                gap-2
+                            "
+                        >
+                            <span className="text-base-content/70">총</span>
+                            <span className="text-2xl md:text-3xl font-extrabold text-blue-600">
+                                {totalWeeklyCount}
+                            </span>
+                            <span className="text-base-content/70">문제</span>
+                        </div>
                     </div>
 
                     {/* 알고리즘 검색 + 선택 + 추가 */}
-                    <div className="flex items-end gap-4 mb-5">
-                        <div className="flex-1 flex flex-col gap-2">
+                    <div
+                        className="
+                            mb-6 p-5 rounded-2xl
+                            bg-base-200/60
+                            flex flex-col md:flex-row
+                            gap-4 md:items-end
+                        "
+                    >
+                        <div className="flex-1 flex flex-col gap-3">
                             <input
                                 type="text"
-                                className="input input-sm w-full text-sm"
+                                className="input input-md w-full text-base md:text-lg"
                                 placeholder="알고리즘 이름 검색"
                                 value={algorithmSearch}
-                                onChange={(e) => setAlgorithmSearch(e.target.value)}
+                                onChange={(e) =>
+                                    setAlgorithmSearch(e.target.value)
+                                }
                             />
                             <select
-                                className="select select-sm w-full text-sm"
+                                className="select select-md w-full text-base md:text-lg"
                                 value={selectedAlgorithmId ?? ""}
                                 onChange={(e) =>
                                     setSelectedAlgorithmId(
-                                        e.target.value ? Number(e.target.value) : null
+                                        e.target.value
+                                            ? Number(e.target.value)
+                                            : null
                                     )
                                 }
                             >
@@ -346,24 +472,39 @@ export default function GoalAddPopup({
                         </div>
 
                         {/* 주간 목표 개수 입력 */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                             <input
                                 type="number"
                                 min={1}
-                                className="input input-sm w-20 text-center"
+                                className="input input-md w-28 text-center text-base md:text-lg"
                                 value={weeklyCountInput}
                                 onChange={(e) =>
                                     setWeeklyCountInput(
-                                        Math.max(1, Number(e.target.value) || 1)
+                                        Math.max(
+                                            1,
+                                            Number(e.target.value) || 1
+                                        )
                                     )
                                 }
                             />
-                            <span className="text-sm whitespace-nowrap">문제</span>
+                            <span className="text-base md:text-lg whitespace-nowrap">
+                                문제
+                            </span>
                         </div>
 
+                        {/* 추가 버튼 */}
                         <button
                             type="button"
-                            className="btn btn-md h-12 min-h-12 normal-case px-4 btn-success text-white"
+                            className="
+                                btn
+                                bg-blue-500 text-white border-blue-500 shadow-sm
+                                rounded-xl
+                                h-11 min-h-0
+                                px-6
+                                normal-case
+                                text-sm md:text-base
+                                hover:brightness-110
+                            "
                             onClick={handleAddGoal}
                         >
                             추가
@@ -371,55 +512,72 @@ export default function GoalAddPopup({
                     </div>
 
                     {/* 주간 목표 테이블 */}
-                    <div className="border border-base-300 rounded-xl overflow-hidden">
-                        <table className="table table-sm mb-0">
+                    <div className="border border-base-300 rounded-2xl overflow-hidden">
+                        <table className="table table-sm mb-0 w-full">
                             <thead className="bg-base-200">
-                            <tr>
-                                <th className="text-xl">알고리즘</th>
-                                <th className="w-40 text-center text-xl">주간 목표 수</th>
-                                <th className="w-12" />
+                            <tr className="text-center">
+                                <th className="text-base md:text-lg text-center">
+                                    알고리즘
+                                </th>
+                                <th className="w-60 text-base md:text-lg text-center">
+                                    주간 목표 수
+                                </th>
+                                <th className="w-12 text-center"></th>
                             </tr>
                             </thead>
+
                             <tbody>
                             {goals.map((g) => (
-                                <tr key={g.id} className="align-middle">
-                                    {/* 알고리즘 이름 칸 */}
-                                    <td className="text-xl">
+                                <tr
+                                    key={g.id}
+                                    className="align-middle text-base md:text-lg"
+                                >
+                                    <td>
                                         <div className="h-10 flex items-center">
                                             {g.algorithmName}
+                                            {g.isLocked && (
+                                                <span className="ml-2 text-md text-base-content/50">
+                                                        (기존)
+                                                    </span>
+                                            )}
                                         </div>
                                     </td>
 
-                                    {/* 주간 목표 수 칸 */}
                                     <td>
-                                        <div className="flex items-center justify-center gap-2">
+                                        <div className="flex items-center justify-center gap-3">
                                             <input
                                                 type="number"
                                                 min={0}
-                                                className="input input-sm w-20 text-center"
+                                                className="input input-sm w-24 text-center text-base md:text-lg"
                                                 value={g.weeklyCount}
+                                                disabled={g.isLocked}
                                                 onChange={(e) =>
                                                     handleChangeWeeklyCount(
                                                         g.id,
-                                                        Number(e.target.value) || 0
+                                                        Number(
+                                                            e.target.value
+                                                        ) || 0
                                                     )
                                                 }
                                             />
-                                            <span className="text-xl text-gray-500">
+                                            <span className="text-sm md:text-base text-base-content/60">
                                                     문제
                                                 </span>
                                         </div>
                                     </td>
 
-                                    {/* 삭제 버튼 칸 */}
                                     <td className="text-center">
-                                        <button
-                                            type="button"
-                                            className="btn btn-ghost btn-md text-gray-400 hover:text-red-500"
-                                            onClick={() => handleRemoveGoal(g.id)}
-                                        >
-                                            ✕
-                                        </button>
+                                        {!g.isLocked && (
+                                            <button
+                                                type="button"
+                                                className="btn btn-ghost btn-sm text-base-content/40 hover:text-red-500 text-lg"
+                                                onClick={() =>
+                                                    handleRemoveGoal(g.id)
+                                                }
+                                            >
+                                                ✕
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
@@ -428,7 +586,7 @@ export default function GoalAddPopup({
                                 <tr>
                                     <td
                                         colSpan={3}
-                                        className="text-center text-lg text-gray-400 py-4"
+                                        className="text-center text-base md:text-lg text-base-content/40 py-6"
                                     >
                                         아직 추가된 주간 목표가 없어요.
                                     </td>
@@ -441,24 +599,27 @@ export default function GoalAddPopup({
 
                 {/* ====================== 하단: 일간 목표 설정 ====================== */}
                 <section className="mb-8">
-                    <div className="flex items-center justify-between mb-3">
-                        {/* 왼쪽: 타이틀 + 설명 */}
-                        <div className="flex flex-col">
-                            <h3 className="text-lg font-bold">🗓 일간 목표 설정</h3>
-                            <span className="text-md text-gray-500">
+                    <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+                        <div className="flex flex-col gap-2">
+                            <h3 className="text-xl md:text-2xl font-bold">
+                                🗓 일간 목표 설정
+                            </h3>
+                            <span className="text-xl md:text-xl text-base-content/70 leading-snug">
                                 각 알고리즘을 요일별로 몇 문제씩 풀지 나눠주세요.
                             </span>
                         </div>
 
-                        {/* 오른쪽: 분배 모드 스위치 (버튼 토글) */}
-                        <div className="flex items-center gap-2 text-sm">
+                        <div className="inline-flex items-center rounded-full bg-base-200/70 p-1 gap-1">
                             <button
                                 type="button"
-                                className={`btn btn-md h-12 min-h-12 normal-case px-4 ${
+                                className={`
+                                    px-5 py-2 text-md md:text-md rounded-full normal-case
+                                    ${
                                     distributionMode === "AUTO"
-                                        ? "btn-success text-white"
-                                        : "btn-ghost"
-                                }`}
+                                        ? "bg-blue-500 text-white"
+                                        : "bg-transparent text-base-content/70 hover:bg-base-100"
+                                }
+                                `}
                                 onClick={() => {
                                     setDistributionMode("AUTO");
                                     applyAutoDistribution();
@@ -469,12 +630,17 @@ export default function GoalAddPopup({
 
                             <button
                                 type="button"
-                                className={`btn btn-md h-12 min-h-12 normal-case px-4 ${
+                                className={`
+                                    px-5 py-2 text-md md:text-md rounded-full normal-case
+                                    ${
                                     distributionMode === "MANUAL"
-                                        ? "btn-success text-white"
-                                        : "btn-ghost"
-                                }`}
-                                onClick={() => setDistributionMode("MANUAL")}
+                                        ? "bg-blue-500 text-white"
+                                        : "bg-transparent text-base-content/70 hover:bg-base-100"
+                                }
+                                `}
+                                onClick={() =>
+                                    setDistributionMode("MANUAL")
+                                }
                             >
                                 직접 입력
                             </button>
@@ -482,21 +648,26 @@ export default function GoalAddPopup({
                     </div>
 
                     {/* 테이블 영역 */}
-                    <div className="border border-base-300 rounded-xl overflow-x-auto">
-                        <table className="table table-sm mb-0">
+                    <div className="border border-base-300 rounded-2xl overflow-hidden">
+                        <table className="table table-sm mb-0 w-full">
                             <thead className="bg-base-200">
                             <tr>
-                                <th className="w-40 text-xl">
-                                    <div className="h-10 flex items-center">알고리즘</div>
+                                <th className="min-w-[220px] text-base md:text-lg">
+                                    <div className="h-10 flex items-center justify-center">
+                                        알고리즘
+                                    </div>
                                 </th>
                                 {DAY_KEYS.map((key) => (
-                                    <th key={key} className="text-center">
-                                        <div className="h-10 flex items-center justify-center text-xl">
+                                    <th
+                                        key={key}
+                                        className="text-sm md:text-base text-center"
+                                    >
+                                        <div className="h-10 flex items-center justify-center">
                                             {DAY_LABELS[key]}
                                         </div>
                                     </th>
                                 ))}
-                                <th className="w-24 text-center text-xl">
+                                <th className="w-24 text-center text-base md:text-lg">
                                     <div className="h-10 flex items-center justify-center">
                                         남은
                                     </div>
@@ -506,7 +677,10 @@ export default function GoalAddPopup({
 
                             <tbody>
                             {goals.map((g) => {
-                                const rowSum = g.dailyCounts.reduce((s, v) => s + v, 0);
+                                const rowSum = g.dailyCounts.reduce(
+                                    (s, v) => s + v,
+                                    0
+                                );
                                 const diff = g.weeklyCount - rowSum;
 
                                 const diffClass =
@@ -517,10 +691,18 @@ export default function GoalAddPopup({
                                             : "text-error";
 
                                 return (
-                                    <tr key={g.id} className="align-middle">
-                                        <td className="text-xl">
+                                    <tr
+                                        key={g.id}
+                                        className="align-middle text-base md:text-lg"
+                                    >
+                                        <td>
                                             <div className="h-10 flex items-center">
                                                 {g.algorithmName}
+                                                {g.isLocked && (
+                                                    <span className="ml-2 text-md text-base-content/50">
+                                                            (기존)
+                                                        </span>
+                                                )}
                                             </div>
                                         </td>
 
@@ -530,17 +712,24 @@ export default function GoalAddPopup({
                                                     <input
                                                         type="number"
                                                         min={0}
-                                                        className="input input-sm w-18 text-center text-base leading-none"
-                                                        value={g.dailyCounts[dayIndex]}
+                                                        className="input input-sm w-16 text-center text-base md:text-lg leading-none"
+                                                        value={
+                                                            g.dailyCounts[
+                                                                dayIndex
+                                                                ]
+                                                        }
                                                         disabled={
-                                                            distributionMode === "AUTO"
+                                                            distributionMode ===
+                                                            "AUTO" ||
+                                                            g.isLocked
                                                         }
                                                         onChange={(e) =>
                                                             handleChangeDailyCell(
                                                                 g.id,
                                                                 dayIndex,
                                                                 Number(
-                                                                    e.target.value
+                                                                    e.target
+                                                                        .value
                                                                 ) || 0
                                                             )
                                                         }
@@ -550,7 +739,7 @@ export default function GoalAddPopup({
                                         ))}
 
                                         <td
-                                            className={`text-center font-semibold text-xl ${diffClass}`}
+                                            className={`text-center font-semibold ${diffClass}`}
                                         >
                                             {diff}
                                         </td>
@@ -562,7 +751,7 @@ export default function GoalAddPopup({
                                 <tr>
                                     <td
                                         colSpan={DAY_KEYS.length + 2}
-                                        className="text-center text-lg text-gray-400 py-4"
+                                        className="text-center text-base md:text-lg text-base-content/40 py-6"
                                     >
                                         목표가 없습니다.
                                     </td>
@@ -572,23 +761,26 @@ export default function GoalAddPopup({
 
                             <tfoot className="bg-base-200">
                             <tr>
-                                <th className="p-0">
-                                    <div className="h-10 flex items-center text-xl">
+                                <th className="p-0 text-base md:text-lg">
+                                    <div className="h-10 flex items-center justify-center">
                                         요일 합계
                                     </div>
                                 </th>
 
                                 {DAY_KEYS.map((_, idx) => (
-                                    <th key={idx} className="p-0 text-center">
-                                        <div className="h-10 flex items-center justify-center text-xl">
+                                    <th
+                                        key={idx}
+                                        className="p-0 text-center text-sm md:text-base"
+                                    >
+                                        <div className="h-10 flex items-center justify-center">
                                             {dayTotals[idx]}
                                         </div>
                                     </th>
                                 ))}
 
-                                <th className="p-0 text-center">
+                                <th className="p-0 text-center text-base md:text-lg">
                                     <div
-                                        className={`h-10 flex items-center justify-center text-xl ${
+                                        className={`h-10 flex items-center justify-center font-semibold ${
                                             totalRemain === 0
                                                 ? "text-success"
                                                 : totalRemain > 0
@@ -606,10 +798,19 @@ export default function GoalAddPopup({
                 </section>
 
                 {/* 하단 버튼 */}
-                <div className="flex justify-end gap-3 mt-6">
+                <div className="flex justify-end gap-3 mt-8">
                     <button
                         type="button"
-                        className="btn btn-md h-12 min-h-12 normal-case px-4 btn-ghost"
+                        className="
+                            btn
+                            h-11 min-h-0
+                            px-5
+                            normal-case
+                            border-base-300
+                            bg-base-100
+                            text-sm md:text-base text-base-content/80
+                            hover:bg-base-200
+                        "
                         onClick={onClose}
                         disabled={saving}
                     >
@@ -617,9 +818,21 @@ export default function GoalAddPopup({
                     </button>
                     <button
                         type="button"
-                        className="btn btn-md h-12 min-h-12 normal-case px-4 btn-success text-white"
+                        className="
+                            btn
+                            bg-blue-500 text-white border-blue-500 shadow-sm
+                            rounded-xl
+                            h-11 min-h-0
+                            px-6
+                            normal-case
+                            text-sm md:text-base
+                            hover:brightness-110
+                        "
                         onClick={handleSubmit}
-                        disabled={goals.length === 0 || saving}
+                        disabled={
+                            goals.filter((g) => !g.isLocked).length === 0 ||
+                            saving
+                        }
                     >
                         {saving ? "저장 중..." : "저장하기"}
                     </button>

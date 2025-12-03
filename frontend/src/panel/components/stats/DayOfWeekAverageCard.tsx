@@ -1,93 +1,114 @@
 // src/components/stats/DayOfWeekAverageCard.tsx
+import { Bar } from "react-chartjs-2";
 import {
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    CartesianGrid,
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    BarElement,
     Tooltip,
-    ResponsiveContainer,
-    Cell,
-} from "recharts";
+    Legend,
+} from "chart.js";
 import { CalendarDays } from "lucide-react";
+import type { MonthlySummaryResponse } from "../../../types/statistics";
 
-type DayStat = {
-    day: "월" | "화" | "수" | "목" | "금" | "토" | "일";
-    label: string;
-    avg: number;
-    color: string;
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+
+type Props = {
+    weekdayStats?: MonthlySummaryResponse["weekdayStats"];
 };
 
-const dummyData: DayStat[] = [
-    { day: "월", label: "월요일", avg: 1.2, color: "#7CC4FA" }, // stronger sky pastel
-    { day: "화", label: "화요일", avg: 2.4, color: "#7ED9A5" }, // stronger mint pastel
-    { day: "수", label: "수요일", avg: 0.9, color: "#C3A2FF" }, // stronger lavender pastel
-    { day: "목", label: "목요일", avg: 1.9, color: "#FFD48A" }, // stronger cream pastel
-    { day: "금", label: "금요일", avg: 0.4, color: "#FFA9C0" }, // stronger pink pastel
-    { day: "토", label: "토요일", avg: 0.3, color: "#7FE4DE" }, // stronger aqua pastel
-    { day: "일", label: "일요일", avg: 1.5, color: "#FFA5A5" }, // stronger red pastel
-];
+export default function DayOfWeekAverageCard({ weekdayStats }: Props) {
+    // 데이터 없을 때
+    if (!weekdayStats || weekdayStats.length === 0) {
+        return (
+            <div className="rounded-2xl border border-base-200 bg-base-100/90 p-6 shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-base-200/80">
+                        <CalendarDays className="w-5 h-5 text-emerald-500" />
+                    </div>
+                    <p className="text-2xl font-semibold text-base-content">
+                        요일별 평균 풀이 통계
+                    </p>
+                </div>
+                <p className="py-10 text-center text-base-content/60 text-lg">
+                    요일별 통계를 만들기엔 풀이 데이터가 아직 부족해요.
+                </p>
+            </div>
+        );
+    }
 
+    const labels = weekdayStats.map((d) => d.label); // "월", "화"...
+    const values = weekdayStats.map((d) => d.avgSolved);
+    const maxVal = Math.max(...values, 1);
 
-function getHighlightText(data: DayStat[]) {
-    if (!data.length) return "";
-    const best = data.reduce((max, cur) => (cur.avg > max.avg ? cur : max), data[0]);
-    return `${best.label}에 가장 활발하게 문제를 풀고 있어요! 🎉`;
-}
+    const best = weekdayStats.reduce((a, b) => (a.avgSolved > b.avgSolved ? a : b));
 
-export default function DayOfWeekAverageCard() {
-    const highlight = getHighlightText(dummyData);
+    const data = {
+        labels,
+        datasets: [
+            {
+                label: "평균 풀이 수",
+                data: values,
+                backgroundColor: "rgba(59,130,246,0.9)", // blue-500
+                borderRadius: 6,
+                barThickness: 26, // 막대 두께
+            },
+        ],
+    };
+
+    const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                callbacks: {
+                    label: (ctx: any) => `${ctx.parsed.y} 문제`,
+                },
+            },
+        },
+        scales: {
+            x: {
+                grid: { display: false },
+                ticks: { color: "#6b7280", font: { size: 12 } },
+            },
+            y: {
+                min: 0,
+                max: maxVal * 1.1,
+                ticks: { display: false },
+                grid: { display: false },
+            },
+        },
+    } as const;
 
     return (
-        <div className="rounded-2xl border border-base-200 bg-base-100/90 p-5 shadow-sm">
+        <div className="rounded-2xl border border-base-200 bg-base-100/90 p-6 shadow-sm">
             {/* 헤더 */}
-            <div className="mb-4 flex items-center gap-2">
+            <div className="flex items-center gap-2 mb-6">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-base-200/80">
                     <CalendarDays className="w-5 h-5 text-emerald-500" />
                 </div>
-                <p className="text-2xl font-semibold text-base-content flex items-center gap-1">
+
+                <p className="text-2xl font-semibold text-base-content">
                     요일별 평균 풀이 통계
+                </p>
+                <p className="text-xl text-base-content/60 ml-2">
+                    한 달 기준 요일별 평균 풀이 수
                 </p>
             </div>
 
             {/* 차트 */}
-            <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                        data={dummyData}
-                        margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
-                    >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="day" tick={{ fontSize: 12 }} />
-                        <YAxis
-                            tick={{ fontSize: 12 }}
-                            tickLine={false}
-                            axisLine={{ stroke: "#e5e7eb" }}
-                        />
-
-                        <Tooltip
-                            contentStyle={{
-                                borderRadius: 12,
-                                border: "1px solid #e5e7eb",
-                                fontSize: 12,
-                            }}
-                            formatter={(value) => [`${value} 문제`, "평균 풀이 수"]}
-                            labelFormatter={(label) => `${label}요일`}
-                        />
-
-                        <Bar dataKey="avg" radius={[8, 8, 0, 0]} isAnimationActive={true}>
-                            {dummyData.map((entry, index) => (
-                                <Cell key={`bar-${index}`} fill={entry.color} />
-                            ))}
-                        </Bar>
-                    </BarChart>
-                </ResponsiveContainer>
+            <div className="h-64 w-full mb-6">
+                <Bar data={data} options={options} />
             </div>
 
             {/* 하단 문구 */}
-            <p className="mt-4 text-center text-xl text-base-content/80">
-                {highlight}
-            </p>
+            <p
+                className="text-center text-xl text-base-content/80"
+                dangerouslySetInnerHTML={{
+                    __html: `<strong class='font-semibold text-base-content'>${best.label}요일</strong>에 가장 활발하게 문제를 풀고 있어요! 🎉`,
+                }}
+            />
         </div>
     );
 }

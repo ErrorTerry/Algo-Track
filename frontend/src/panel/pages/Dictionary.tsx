@@ -1,5 +1,5 @@
-import {useState, useEffect, useRef} from "react";
-import {useParams} from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useParams } from "react-router-dom";
 import api from "../../shared/api";
 
 type AlgorithmCategoryApi = {
@@ -31,7 +31,7 @@ type Category = {
 };
 
 export default function Dictionary() {
-    const {algoId} = useParams<{ algoId?: string }>();
+    const { algoId } = useParams<{ algoId?: string }>();
 
     const [categories, setCategories] = useState<Category[]>([]);
     const [openCategoryId, setOpenCategoryId] = useState<string | null>(null);
@@ -40,11 +40,10 @@ export default function Dictionary() {
 
     const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-    const toggleCategory = (id: string) => {
-        setOpenCategoryId((current) => (current === id ? null : id));
-    };
+    const toggleCategory = (id: string) =>
+        setOpenCategoryId((prev) => (prev === id ? null : id));
 
-    // 1) 서버에서 데이터 불러오기
+    /** 1) 서버 데이터 불러오기 */
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -76,8 +75,7 @@ export default function Dictionary() {
                 setCategories(mapped);
                 setOpenCategoryId(mapped[0]?.id ?? null);
             } catch (e: any) {
-                console.error(e);
-                setError(e.message ?? "알고리즘 사전 데이터를 불러오지 못했어.");
+                setError(e.message ?? "알고리즘 사전을 불러올 수 없어요.");
             } finally {
                 setLoading(false);
             }
@@ -86,38 +84,37 @@ export default function Dictionary() {
         fetchData();
     }, []);
 
-    // 2) /dictionary/:algoId 로 들어왔을 때 해당 카드로 스크롤
+    /** 2) /dictionary/:id 접근 시 해당 카드로 스크롤 */
     useEffect(() => {
         if (!algoId || categories.length === 0) return;
 
-        const foundCategory = categories.find((cat) =>
+        const foundCat = categories.find((cat) =>
             cat.algorithms.some((a) => a.id === algoId)
         );
 
-        if (foundCategory) {
-            setOpenCategoryId(foundCategory.id);
+        if (foundCat) {
+            setOpenCategoryId(foundCat.id);
 
             setTimeout(() => {
                 const el = cardRefs.current[algoId];
                 if (el) {
-                    el.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center",
-                    });
+                    el.scrollIntoView({ behavior: "smooth", block: "center" });
                 }
-            }, 80);
+            }, 120);
         }
     }, [algoId, categories]);
 
+    /** 3) 로딩 UI */
     if (loading) {
         return (
             <div className="w-full h-full flex items-center justify-center">
-                <span className="loading loading-spinner loading-lg"/>
-                <span className="ml-3 text-lg">알고리즘 사전 불러오는 중...</span>
+                <span className="loading loading-spinner loading-lg"></span>
+                <span className="ml-3 text-lg opacity-80">알고리즘 사전 불러오는 중...</span>
             </div>
         );
     }
 
+    /** 4) 에러 UI */
     if (error) {
         return (
             <div className="w-full h-full flex items-center justify-center text-red-500">
@@ -126,95 +123,101 @@ export default function Dictionary() {
         );
     }
 
+    /** 5) 실제 화면 */
     return (
         <div className="w-full h-full flex flex-col min-h-0 p-5 md:p-6">
-            {/* 아코디언 리스트 */}
-            <div className="flex-1 min-h-0 space-y-4 overflow-y-auto pr-2">
+
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
+
                 {categories.map((cat) => {
                     const isOpen = openCategoryId === cat.id;
 
                     return (
                         <div
                             key={cat.id}
-                            className={`rounded-[16px] transition-all duration-200 transform
-                            ${isOpen
-                                ? "bg-neutral-content scale-[1.01] shadow-md border border-base-200"
-                                : "bg-base-100 shadow-sm border border-base-300"
-                            }`}
+                            className={`
+                                rounded-2xl border transition-colors duration-300
+                                ${
+                                isOpen
+                                    ? "bg-blue-50/50 border-blue-100"
+                                    : "bg-base-100 border-base-300 hover:bg-base-100/70"
+                            }
+                            `}
                         >
                             {/* 아코디언 헤더 */}
                             <button
                                 type="button"
-                                className="w-full flex items-center justify-between px-4 md:px-5 py-4 md:py-5 text-left"
                                 onClick={() => toggleCategory(cat.id)}
+                                className="w-full flex items-center justify-between px-5 py-5 text-left"
                             >
-                                <div className="flex-1 text-left">
-                                    <div className="text-2xl md:text-3xl font-bold">
+                                <div className="flex-1">
+                                    <div className="text-2xl md:text-3xl font-bold text-base-content/90">
                                         {cat.name}
                                     </div>
+
                                     {cat.summary && (
-                                        <div className="text-base md:text-lg opacity-70 mt-1 leading-relaxed">
+                                        <p className="text-base md:text-lg opacity-70 mt-1 leading-relaxed">
                                             {cat.summary}
-                                        </div>
+                                        </p>
                                     )}
                                 </div>
 
                                 <span
-                                    className={`ml-3 md:ml-4 flex-shrink-0 transition-transform duration-200 ${
+                                    className={`ml-4 transition-transform duration-300 ${
                                         isOpen ? "rotate-90" : ""
                                     }`}
                                 >
-                  <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      className="w-6 h-6 md:w-7 md:h-7"
-                  >
-                    <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </span>
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        strokeWidth="2"
+                                        stroke="currentColor"
+                                        className="w-7 h-7 opacity-70"
+                                    >
+                                        <path d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </span>
                             </button>
 
                             {/* 아코디언 내용 */}
                             {isOpen && (
-                                <div className="px-4 md:px-5 pb-5 md:pb-6 space-y-4">
-                                    {cat.algorithms.map((algo) => (
-                                        <div
-                                            key={algo.id}
-                                            ref={(el) => {
-                                                cardRefs.current[algo.id] = el;
-                                            }}
-                                            className={`rounded-[14px] border border-base-300 bg-base-100 shadow p-5 md:p-6 hover:shadow-md transition cursor-default
-                        ${
-                                                algoId === algo.id
-                                                    ? "ring-2 ring-primary shadow-[0_0_12px_rgba(0,0,0,0.2)]"
-                                                    : ""
-                                            }
-                      `}
-                                        >
-                                            <div className="text-xl md:text-2xl font-bold mb-2">
-                                                {algo.title}
-                                            </div>
+                                <div className="px-5 pb-6 space-y-4">
+                                    {cat.algorithms.map((algo) => {
+                                        const selected = algoId === algo.id;
 
+                                        return (
                                             <div
-                                                className="text-lg md:text-xl opacity-90 leading-relaxed mb-2 whitespace-pre-line">
-                                                {algo.description}
-                                            </div>
-
-                                            {algo.detail && (
-                                                <div
-                                                    className="text-base md:text-lg opacity-80 leading-relaxed whitespace-pre-line">
-                                                    {algo.detail}
+                                                key={algo.id}
+                                                ref={(el: HTMLDivElement | null) => {
+                                                    cardRefs.current[algo.id] = el ?? null;
+                                                }}
+                                                className={`
+                                                    rounded-xl border bg-base-100/90 p-5 md:p-6
+                                                    transition-colors duration-300
+                                                    ${
+                                                    selected
+                                                        ? "border-primary/40 bg-primary/5"
+                                                        : "border-base-300 hover:bg-base-100"
+                                                }
+                                                `}
+                                            >
+                                                <div className="text-xl md:text-2xl font-bold mb-2 text-base-content/90">
+                                                    {algo.title}
                                                 </div>
-                                            )}
-                                        </div>
-                                    ))}
+
+                                                <div className="text-lg md:text-xl opacity-90 leading-relaxed whitespace-pre-line mb-2">
+                                                    {algo.description}
+                                                </div>
+
+                                                {algo.detail && (
+                                                    <div className="text-base md:text-lg opacity-80 leading-relaxed whitespace-pre-line">
+                                                        {algo.detail}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
 
                                     {cat.algorithms.length === 0 && (
                                         <div className="text-lg opacity-70">
@@ -226,6 +229,7 @@ export default function Dictionary() {
                         </div>
                     );
                 })}
+
             </div>
         </div>
     );

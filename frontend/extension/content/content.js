@@ -3,29 +3,68 @@
     // =========================
     // 0) 중복 주입 방지
     // =========================
-    if (document.getElementById("bj-helper-panel")) return;
+    if (document.getElementById("algo-panel")) return;
 
     // =========================
     // 1) 토글 버튼
     // =========================
     const btn = document.createElement("button");
-    btn.id = "bj-helper-toggle-btn";
+    btn.id = "algo-toggle-btn";
     btn.textContent = "Algo-Track";
     document.body.appendChild(btn);
 
     // =========================
-    // 2) 패널 + 리사이저 + React 루트(고유 id)
+    // 2) 패널 + 리사이저 + Shadow DOM + React 루트
     // =========================
     const panel = document.createElement("div");
-    panel.id = "bj-helper-panel";
+    panel.id = "algo-panel";
 
     const resizer = document.createElement("div");
-    resizer.id = "bj-helper-resizer";
+    resizer.id = "algo-resizer";
     panel.appendChild(resizer);
 
-    const root = document.createElement("div");
-    root.id = "bj-helper-react-root"; // ★ 고유 id
-    panel.appendChild(root);
+    // ★ Shadow DOM 호스트
+    const reactHost = document.createElement("div");
+    reactHost.id = "algo-react-host";
+    panel.appendChild(reactHost);
+
+    // ★ Shadow DOM 생성
+    const shadowRoot = reactHost.attachShadow({mode: "open"});
+
+    // Pretendard
+    const fontStyle = document.createElement("style");
+    fontStyle.textContent = `
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard...');
+  :host, * { font-family: Pretendard, sans-serif !important; }
+`;
+    shadowRoot.appendChild(fontStyle);
+
+// 👉 여기에 모나코 고정폭 폰트 스타일 추가!
+    const monoFixStyle = document.createElement("style");
+    monoFixStyle.textContent = `
+  .algo-ide-editor .monaco-editor,
+  .algo-ide-editor .monaco-editor * {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      'Courier New', monospace !important;
+  }
+`;
+    shadowRoot.appendChild(monoFixStyle);
+
+
+    // ★ Shadow DOM 안에 React 루트 & CSS 주입
+    const reactStyleLink = document.createElement("link");
+    reactStyleLink.rel = "stylesheet";
+    // 👉 빌드 결과 CSS 파일 이름 맞춰서 수정 가능
+    reactStyleLink.href = chrome.runtime.getURL("dist/react-panel.css");
+    shadowRoot.appendChild(reactStyleLink);
+
+    const reactRoot = document.createElement("div");
+    reactRoot.id = "algo-react-root";
+    shadowRoot.appendChild(reactRoot);
+
+    // React 번들이 참고할 수 있게 전역에 노출
+    (globalThis).__ALGO_PANEL_SHADOW_ROOT = shadowRoot;
+    (globalThis).__ALGO_PANEL_ROOT = reactRoot;
 
     document.body.appendChild(panel);
 
@@ -33,71 +72,85 @@
     // 2.5) 레이아웃 스타일
     // =========================
     const styleEl = document.createElement("style");
-    styleEl.id = "bj-helper-style";
+    styleEl.id = "algo-panel-style";
     styleEl.textContent = `
     :root {
-      --bj-panel-width: 50vw;
-      --bj-panel-min: 320px;
-      --bj-panel-max: 90vw;
-      --bj-z-panel: 2147483000;
-      --bj-z-btn:   2147483600;
+      --algo-panel-width: 50vw;
+      --algo-panel-min: 320px;
+      --algo-panel-max: 90vw;
+      --algo-z-panel: 2147483000;
+      --algo-z-btn:   2147483600;
     }
     /* 버튼: 기본은 화면 오른쪽 아래(패널 닫힘 시) */
-    #bj-helper-toggle-btn {
-      position: fixed; right: 16px; bottom: 16px; z-index: var(--bj-z-btn);
+    #algo-toggle-btn {
+      position: fixed; right: 16px; bottom: 16px; z-index: var(--algo-z-btn);
       padding: 10px 14px; border: none; border-radius: 10px;
       box-shadow: 0 4px 12px rgba(0,0,0,.15);
       background: #111827; color: #fff; font-size: 14px; cursor: pointer;
     }
     /* 패널 */
-    #bj-helper-panel {
+    #algo-panel {
       position: fixed; top: 0; right: 0; height: 100vh;
-      width: var(--bj-panel-width); max-width: var(--bj-panel-max); min-width: var(--bj-panel-min);
+      width: var(--algo-panel-width); max-width: var(--algo-panel-max); min-width: var(--algo-panel-min);
       background: #fff; box-shadow: -8px 0 24px rgba(0,0,0,.1);
-      display: none; z-index: var(--bj-z-panel); overflow: hidden;
+      display: none; z-index: var(--algo-z-panel); overflow: hidden;
     }
-    #bj-helper-panel.open { display: block; }
+    #algo-panel.open { display: block; }
 
     /* 리사이저 */
-    #bj-helper-resizer {
+    #algo-resizer {
       position: absolute; left: 0; top: 0; width: 6px; height: 100%;
       cursor: col-resize; background: transparent;
     }
-    #bj-helper-resizer::after {
+    #algo-resizer::after {
       content: ""; position: absolute; right: -1px; top: 0; width: 2px; height: 100%;
       opacity: .15; background: #000;
     }
 
-    /* React 루트 */
-    #bj-helper-react-root {
+    /* React 호스트(Shadow DOM) 영역 */
+    #algo-react-host {
       position: absolute; left: 6px; top: 0; right: 0; bottom: 0;
       overflow: auto;
     }
 
-    /* 패널 열릴 때 본문을 오른쪽으로 밀기 */
-    html.bj-helper-open body {
-      padding-right: var(--bj-panel-width) !important;
-      box-sizing: border-box !important;
-      transition: padding-right .2s ease;
-      overflow-x: hidden !important;
+    html.algo-panel-open body {
+      width: calc(100vw - var(--algo-panel-width));
+      overflow-x: auto;
     }
 
-    /* 안전망 */
-    html.bj-helper-open body > *:not(#bj-helper-panel):not(#bj-helper-toggle-btn) {
-      max-width: calc(100vw - var(--bj-panel-width)) !important;
-      overflow: visible !important;
+    /* 백준이 잡고 있는 고정 max-width 깨기 */
+    html.algo-panel-open body #wrapper,
+    html.algo-panel-open body .wrapper,
+    html.algo-panel-open body #content,
+    html.algo-panel-open body .container {
+      max-width: 100% !important;
+      width: 100% !important;
     }
+    
+
 
     /* 패널 열렸을 땐 버튼을 패널 안으로 이동해 오른쪽 아래 고정 */
-    #bj-helper-panel.open #bj-helper-toggle-btn {
+    #algo-panel.open #algo-toggle-btn {
       position: absolute; right: 16px; bottom: 16px;
     }
 
     /* 작은 화면에서는 패널이 전체 */
     @media (max-width: 800px) {
-      :root { --bj-panel-width: 100vw; }
-      html.bj-helper-open body { padding-right: 0 !important; }
-      #bj-helper-panel { width: 100vw !important; left: 0; }
+      :root { --algo-panel-width: 100vw; }
+      html.algo-panel-open body { padding-right: 0 !important; }
+      #algo-panel { width: 100vw !important; left: 0; }
+    }
+    
+    
+    /* ================================
+       백준 테이블 글자 크기 키우기
+       (패널 열렸든 말든 항상 적용)
+    ================================= */
+    table,
+    table td,
+    table th {
+      font-size: 13px !important;  /* 너무 작으면 14px, 15px로 올려봐도 됨 */
+      line-height: 1.4;
     }
   `;
     document.head.appendChild(styleEl);
@@ -108,12 +161,12 @@
     const setOpen = (open) => {
         if (open) {
             panel.classList.add("open");
-            document.documentElement.classList.add("bj-helper-open");
+            document.documentElement.classList.add("algo-panel-open");
             btn.textContent = "Algo-Track";
             if (btn.parentElement !== panel) panel.appendChild(btn);
         } else {
             panel.classList.remove("open");
-            document.documentElement.classList.remove("bj-helper-open");
+            document.documentElement.classList.remove("algo-panel-open");
             btn.textContent = "Algo-Track";
             if (btn.parentElement !== document.body) document.body.appendChild(btn);
         }
@@ -133,22 +186,22 @@
     const getPanelWidthPx = () => panel.getBoundingClientRect().width;
     const getBoundsPx = () => {
         const cs = getComputedStyle(document.documentElement);
-        const minStr = cs.getPropertyValue("--bj-panel-min").trim() || "320px";
-        const maxStr = cs.getPropertyValue("--bj-panel-max").trim() || "90vw";
+        const minStr = cs.getPropertyValue("--algo-panel-min").trim() || "320px";
+        const maxStr = cs.getPropertyValue("--algo-panel-max").trim() || "90vw";
         const toPx = (s) =>
             s.endsWith("vw")
                 ? (parseFloat(s) / 100) * window.innerWidth
                 : s.endsWith("px")
                     ? parseFloat(s)
                     : parseFloat(s) || 320;
-        return { min: toPx(minStr), max: toPx(maxStr) };
+        return {min: toPx(minStr), max: toPx(maxStr)};
     };
     const onMouseMove = (e) => {
         if (!dragging) return;
         const dx = startX - e.clientX;
-        const { min, max } = getBoundsPx();
+        const {min, max} = getBoundsPx();
         const newWidth = clamp(startWidthPx + dx, min, max);
-        document.documentElement.style.setProperty("--bj-panel-width", px(newWidth));
+        document.documentElement.style.setProperty("--algo-panel-width", px(newWidth));
     };
     const onMouseUp = () => {
         if (!dragging) return;
@@ -175,9 +228,9 @@
     // =========================
     const moduleUrl = chrome.runtime.getURL("dist/react-panel.js");
     import(moduleUrl)
-        .then(() => console.log("[BJ-Helper] panel module loaded"))
+        .then(() => console.log("[AlgoPanel] panel module loaded"))
         .catch((e) =>
-            console.error("[BJ-Helper] panel module load failed", e, moduleUrl)
+            console.error("[AlgoPanel] panel module load failed", e, moduleUrl)
         );
 
     // ===========================================================
@@ -263,8 +316,7 @@
     };
 
     // ===========================================================
-    // 6-3) 문제 페이지에서 알고리즘명 파싱해서 저장
-    //  → 이제 "배열"로 저장
+    // 6-3) 문제 페이지에서 알고리즘명 파싱해서 저장 (배열)
     // ===========================================================
     const parseAlgorithmNamesOnProblemPage = () => {
         const root =
@@ -280,7 +332,7 @@
             .filter(Boolean);
 
         if (!names.length) return null;
-        return names; // 배열 그대로
+        return names;
     };
 
     const saveProblemAlgorithmToStorage = () => {
@@ -296,10 +348,9 @@
                 if (res.algoByProblemId && typeof res.algoByProblemId === "object") {
                     map = res.algoByProblemId;
                 }
-                // 배열로 저장
                 map[problemId] = names;
 
-                chrome.storage.local.set({ algoByProblemId: map }, () => {
+                chrome.storage.local.set({algoByProblemId: map}, () => {
                     console.log(
                         "[AlgoTrack] stored algorithmNames",
                         problemId,
@@ -384,7 +435,6 @@
     };
 
     const checkAndSendLatestSubmission = () => {
-        // 내 status 페이지가 아니면 아무것도 안 함
         if (!isMyStatusPage()) return;
 
         const row = parseLatestSubmissionRow();
@@ -392,13 +442,9 @@
 
         const today = getTodayYmd();
 
-        // 1. 오늘 제출이 아니면 바로 스킵
         if (row.solvedYmd !== today) return;
-
-        // 2. 결과가 "맞았습니다!!" 인지 확인
         if (!row.resultText.includes("맞았습니다!!")) return;
 
-        // 3. problemId 파싱 실패 시 전체 스킵
         if (!row.problemId) {
             console.log("[AlgoTrack] problemId parse failed, skip");
             return;
@@ -412,7 +458,6 @@
                         ? res.processedSubmissions
                         : [];
 
-                    // 이미 처리한 제출이면 바로 스킵 (팝업도 안 뜨게)
                     if (processed.includes(row.submissionId)) {
                         return;
                     }
@@ -424,7 +469,6 @@
 
                     const raw = map[String(row.problemId)] || null;
 
-                    // 문자열/배열 모두 케어
                     let candidates = [];
                     if (Array.isArray(raw)) {
                         candidates = raw;
@@ -444,8 +488,7 @@
                         return;
                     }
 
-                    // ===== 알고리즘 최종 선택 =====
-                    let finalAlgorithmName = candidates[0]; // 기본값: 첫 번째
+                    let finalAlgorithmName = candidates[0];
 
                     if (candidates.length > 1) {
                         const msg =
@@ -482,11 +525,11 @@
                         type: "SUBMIT_RESULT",
                         verdict: "AC",
                         submissionId: row.submissionId,
-                        problemId: row.problemId,          // 숫자
-                        solvedDate: row.solvedYmd,         // yyyy-MM-dd
-                        tierNumber: tierNumber,            // 숫자 문자열 or "NULL"
-                        algorithmName: finalAlgorithmName, // ★ 단일 알고리즘명
-                        solvedAt: row.solvedAt.getTime(),  // ms timestamp (옵션)
+                        problemId: row.problemId,
+                        solvedDate: row.solvedYmd,
+                        tierNumber,
+                        algorithmName: finalAlgorithmName,
+                        solvedAt: row.solvedAt.getTime(),
                     };
 
                     try {
@@ -500,7 +543,7 @@
 
                     const next = [...processed, row.submissionId];
                     chrome.storage.local.set(
-                        { processedSubmissions: next },
+                        {processedSubmissions: next},
                         () => {
                             console.log(
                                 "[AlgoTrack] submit result sent & stored",
@@ -516,13 +559,12 @@
         }
     };
 
-    // status 페이지일 때: 일정 시간 동안 최신 제출 감시
     if (isStatusPage()) {
         setTimeout(checkAndSendLatestSubmission, 300);
 
         const START = Date.now();
-        const MAX_DURATION_MS = 5 * 60 * 1000; // 5분
-        const INTERVAL_MS = 4000; // 4초
+        const MAX_DURATION_MS = 5 * 60 * 1000;
+        const INTERVAL_MS = 4000;
 
         const intervalId = setInterval(() => {
             const elapsed = Date.now() - START;
@@ -560,14 +602,13 @@
             if (h && h.textContent && h.textContent.trim())
                 problemTitle = h.textContent.trim();
         }
-        return { problemId, problemTitle };
+        return {problemId, problemTitle};
     };
 
     const extractSamplesFromDOM = () => {
         const inputBlocks = new Map();
         const outputBlocks = new Map();
 
-        // A) id 기반 (#sample-input-1, #sample-output-1)
         document
             .querySelectorAll('[id^="sample-input"], [id^="sample-output"]')
             .forEach((node) => {
@@ -602,12 +643,11 @@
                 const idx = extractIndex(label) ?? extractIndex(node.id) ?? 1;
 
                 if (text) {
-                    if (isInput) inputBlocks.set(idx, { label, text });
-                    else outputBlocks.set(idx, { label, text });
+                    if (isInput) inputBlocks.set(idx, {label, text});
+                    else outputBlocks.set(idx, {label, text});
                 }
             });
 
-        // B) 헤딩 기반 보조 수집
         if (inputBlocks.size === 0 && outputBlocks.size === 0) {
             const headings = Array.from(
                 document.querySelectorAll(
@@ -629,18 +669,16 @@
                     (preCandidate && preCandidate.textContent) || ""
                 );
                 if (!text) return;
-                if (isInputLabel(label)) inputBlocks.set(idx, { label, text });
-                if (isOutputLabel(label)) outputBlocks.set(idx, { label, text });
+                if (isInputLabel(label)) inputBlocks.set(idx, {label, text});
+                if (isOutputLabel(label)) outputBlocks.set(idx, {label, text});
             });
         }
 
-        // C) 페어링
         const indices = Array.from(
             new Set([...inputBlocks.keys(), ...outputBlocks.keys()])
         ).sort((a, b) => a - b);
         const pairs = indices
             .map((i) => ({
-
                 index: i,
                 input: (inputBlocks.get(i) && inputBlocks.get(i).text) || "",
                 output: (outputBlocks.get(i) && outputBlocks.get(i).text) || "",
@@ -656,10 +694,10 @@
         return pairs;
     };
 
-    let __lastPayload; // 최신 payload 캐시
+    let __lastPayload;
 
     const emitSamples = () => {
-        const { problemId, problemTitle } = getProblemMeta();
+        const {problemId, problemTitle} = getProblemMeta();
         const payload = {
             problemId,
             problemTitle,
@@ -670,11 +708,12 @@
         __lastPayload = payload;
 
         document.dispatchEvent(
-            new CustomEvent("boj:samples", { detail: payload, bubbles: true })
+            new CustomEvent("boj:samples", {detail: payload, bubbles: true})
         );
         try {
-            window.postMessage({ type: "BOJ_SAMPLES", payload }, location.origin);
-        } catch {}
+            window.postMessage({type: "BOJ_SAMPLES", payload}, location.origin);
+        } catch {
+        }
 
         console.log("[BojSamples] emit", {
             url: payload.url,
@@ -723,7 +762,7 @@
         }
 
         if (data.type === "ALGO_LOGIN_SUCCESS") {
-            const { accessToken, nickname, profileImageUrl } = data;
+            const {accessToken, nickname, profileImageUrl} = data;
             if (!accessToken) return;
 
             try {
@@ -736,7 +775,7 @@
                     () => {
                         console.log(
                             "[AlgoTrack] login info saved in chrome.storage",
-                            { nickname, origin: ev.origin }
+                            {nickname, origin: ev.origin}
                         );
                     }
                 );
@@ -746,6 +785,5 @@
         }
     });
 
-    // 디버그 훅
     window.__emitBojSamples = emitSamples;
 })();

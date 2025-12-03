@@ -1,18 +1,26 @@
-// src/panel/panelEntry.tsx  (또는 main.tsx)
+// src/panel/panelEntry.tsx
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import App from "../App";              // 경로는 네 구조에 맞게
+import App from "../App";
 import "../index.css";
 
-const mount = document.getElementById("bj-helper-react-root");
-if (!mount) {
-    // 혹시 모를 안전망
-    const el = document.createElement("div");
-    el.id = "bj-helper-react-root";
-    document.body.appendChild(el);
+// Shadow DOM 안 root 가져오는 함수
+function getRoot(): HTMLElement {
+    const globalRoot = (globalThis as any).__ALGO_PANEL_ROOT;
+    if (globalRoot instanceof HTMLElement) return globalRoot;
+
+    const el = document.getElementById("algo-react-root");
+    if (el) return el;
+
+    const fallback = document.createElement("div");
+    fallback.id = "algo-react-root";
+    document.body.appendChild(fallback);
+    return fallback;
 }
 
-createRoot(document.getElementById("bj-helper-react-root")!).render(
+const rootEl = getRoot();
+
+createRoot(rootEl).render(
     <StrictMode>
         <App />
     </StrictMode>

@@ -1,5 +1,5 @@
-import {useEffect, useRef, useState} from "react";
-import {Link, useLocation, useNavigate} from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import api from "../../shared/api";
 
 type SearchResult = {
@@ -11,9 +11,9 @@ type SearchResult = {
 const extChrome = (globalThis as any).chrome;
 
 export default function Navbar() {
-    // ============================
-    // 0) 로그인 유저 정보
-    // ============================
+    /* ===========================
+       0) 로그인 유저 정보
+    ============================ */
     const [nickname, setNickname] = useState<string | null>(null);
 
     useEffect(() => {
@@ -41,9 +41,7 @@ export default function Navbar() {
         if (extChrome?.storage?.local) {
             extChrome.storage.local.remove(
                 ["accessToken", "nickname", "profileImageUrl"],
-                () => {
-                    console.log("[AlgoTrack] logged out");
-                }
+                () => {}
             );
         }
         localStorage.removeItem("accessToken");
@@ -51,9 +49,9 @@ export default function Navbar() {
         localStorage.removeItem("profileImageUrl");
     };
 
-    // ============================
-    // 1) 검색/네비 상태
-    // ============================
+    /* ===========================
+       1) 검색 상태
+    ============================ */
     const [isSearching, setIsSearching] = useState(false);
     const [q, setQ] = useState("");
     const [results, setResults] = useState<SearchResult[]>([]);
@@ -67,7 +65,26 @@ export default function Navbar() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // 🔹 검색 모드일 때 페이지 스크롤 막기
+    /* ===========================
+       프로필 드롭다운 상태 (hover → click)
+    ============================ */
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const profileRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        const onClickOutside = (e: MouseEvent) => {
+            if (!profileRef.current) return;
+            if (!profileRef.current.contains(e.target as Node)) {
+                setIsProfileOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", onClickOutside);
+        return () => document.removeEventListener("mousedown", onClickOutside);
+    }, []);
+
+    /* ===========================
+       검색 열릴 때 body 스크롤 막기
+    ============================ */
     const bodyOverflowRef = useRef<string>("");
 
     useEffect(() => {
@@ -76,18 +93,17 @@ export default function Navbar() {
             bodyOverflowRef.current = body.style.overflow || "";
         }
 
-        if (isSearching) {
-            body.style.overflow = "hidden"; // 위아래/양옆 스크롤 모두 제거
-        } else {
-            body.style.overflow = bodyOverflowRef.current;
-        }
+        if (isSearching) body.style.overflow = "hidden";
+        else body.style.overflow = bodyOverflowRef.current;
 
         return () => {
             body.style.overflow = bodyOverflowRef.current;
         };
     }, [isSearching]);
 
-    // 1) 서버 API 로 검색 데이터 로딩
+    /* ===========================
+       사전 데이터 로딩
+    ============================ */
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -107,7 +123,9 @@ export default function Navbar() {
         fetchData();
     }, []);
 
-    // 2) 검색 디바운스
+    /* ===========================
+       검색 디바운스
+    ============================ */
     useEffect(() => {
         if (!isSearching) return;
 
@@ -129,7 +147,9 @@ export default function Navbar() {
         return () => clearTimeout(t);
     }, [q, isSearching, searchDict]);
 
-    // 외부 클릭 → 검색 닫기
+    /* ===========================
+       외부 클릭 → 검색창 닫기
+    ============================ */
     useEffect(() => {
         if (!isSearching) return;
 
@@ -146,7 +166,9 @@ export default function Navbar() {
         return () => document.removeEventListener("mousedown", onDocClick);
     }, [isSearching]);
 
-    // ESC 처리
+    /* ===========================
+       ESC 눌렀을 때 닫기 + 포커스
+    ============================ */
     useEffect(() => {
         if (isSearching && inputRef.current) inputRef.current.focus();
 
@@ -162,10 +184,16 @@ export default function Navbar() {
         return () => document.removeEventListener("keydown", onKey);
     }, [isSearching]);
 
-    // 메뉴 active 표시
+    /* ===========================
+       메뉴 Active 스타일
+       👉 네잎클로버 느낌 초록
+    ============================ */
     const linkClass = (path: string) =>
-        `hover:bg-base-200 rounded-[10px] px-3 py-2 transition ${
-            location.pathname === path ? "bg-base-300 font-bold" : ""
+        `px-4 py-2 rounded-xl transition-all
+        ${
+            location.pathname === path
+                ? "bg-blue-100 text-blue-600 font-bold"
+                : "hover:bg-base-200/60"
         }`;
 
     const selectAndNavigate = (r: SearchResult) => {
@@ -175,36 +203,48 @@ export default function Navbar() {
         navigate(`/dictionary/${r.id}`);
     };
 
+    /* ===========================
+       실제 Navbar UI
+    ============================ */
     return (
         <div className="relative z-[10000]">
-            <div ref={containerRef} className="navbar bg-base-100 shadow-sm px-6 py-3">
-                {/* 왼쪽: 프로필 드롭다운 */}
+            <div
+                ref={containerRef}
+                className="
+                    navbar backdrop-blur-lg bg-base-100/70
+                    border-b border-base-300/40 shadow-sm
+                    px-6 py-3
+                "
+            >
+                {/* 왼쪽: 프로필 */}
                 <div className="navbar-start gap-4">
-                    <div className="dropdown">
+                    <div
+                        ref={profileRef}
+                        className={`dropdown dropdown-start ${
+                            isProfileOpen ? "dropdown-open" : ""
+                        }`}
+                    >
                         <button
-                            type="button"
                             tabIndex={0}
+                            type="button"
+                            onClick={() =>
+                                setIsProfileOpen((prev) => !prev)
+                            }
                             className="
                                 flex items-center justify-center
-                                w-[56px] h-[56px]
-                                bg-transparent
-                                border-none
-                                outline-none
-                                cursor-pointer
-                                hover:bg-transparent
-                                active:bg-transparent
-                                focus:bg-transparent
-                                focus:outline-none
-                                shadow-none
+                                w-[46px] h-[46px]
+                                rounded-full bg-base-200/70
+                                hover:bg-base-300/70
+                                transition
                             "
                         >
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
+                                stroke="currentColor"
+                                strokeWidth="2"
                                 fill="none"
                                 viewBox="0 0 24 24"
-                                strokeWidth={2}
-                                stroke="currentColor"
-                                className="w-[30px] h-[30px]"
+                                className="w-[26px] h-[26px] opacity-80"
                             >
                                 <path
                                     strokeLinecap="round"
@@ -216,73 +256,89 @@ export default function Navbar() {
 
                         <ul
                             className="
-                                mt-3 z-[100000]
-                                py-2 px-1
-                                dropdown-content bg-base-100
-                                w-[200px] text-[15px]
-                                border border-base-300
-                                rounded-none
+                                dropdown-content
+                                bg-base-100/95 backdrop-blur-xl
+                                border border-base-300 rounded-2xl shadow-md
+                                w-[220px] p-2 z-[120000]
+                                mt-2
                             "
                         >
-                            <li className="opacity-70 select-none cursor-default py-2">
+                            <li className="opacity-70 px-3 py-2">
                                 {nickname ? `${nickname}님` : "로그인됨"}
                             </li>
-                            <li
-                                className="
-                                    cursor-pointer
-                                    hover:bg-base-200
-                                    px-2 py-1
-                                    rounded-none
-                                "
-                                onClick={handleLogout}
-                            >
-                                <span className="font-semibold">로그아웃</span>
+                            <li>
+                                <button
+                                    onClick={handleLogout}
+                                    className="
+                                        w-full text-left px-3 py-2
+                                        rounded-xl
+                                        hover:bg-base-200
+                                        font-semibold
+                                    "
+                                >
+                                    로그아웃
+                                </button>
                             </li>
                         </ul>
                     </div>
                 </div>
 
-                {/* 가운데: 검색/메뉴 */}
-                <div className={`navbar-center ${isSearching ? "w-full justify-center" : ""}`}>
+                {/* 가운데 메뉴 또는 검색창 */}
+                <div className={`navbar-center ${isSearching ? "w-full" : ""}`}>
                     {isSearching ? (
-                        // 검색 UI
-                        <div className="relative w-full max-w-[480px]">
-                            <div className="relative">
-                                <input
-                                    ref={inputRef}
-                                    value={q}
-                                    onChange={(e) => setQ(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "ArrowDown") {
-                                            e.preventDefault();
-                                            setActiveIndex((i) =>
-                                                Math.min(i + 1, results.length - 1)
-                                            );
-                                        } else if (e.key === "ArrowUp") {
-                                            e.preventDefault();
-                                            setActiveIndex((i) => Math.max(i - 1, 0));
-                                        } else if (e.key === "Enter" && results[activeIndex]) {
-                                            e.preventDefault();
-                                            selectAndNavigate(results[activeIndex]);
-                                        }
-                                    }}
-                                    placeholder={
-                                        loadingDict
-                                            ? "사전 불러오는 중..."
-                                            : "검색어 입력 (↑/↓, Enter · ESC)"
+                        /* 검색 모드: 가운데 정렬 */
+                        <div className="relative w-full max-w-[480px] mx-auto">
+                            <input
+                                ref={inputRef}
+                                value={q}
+                                onChange={(e) => setQ(e.target.value)}
+                                placeholder={
+                                    loadingDict
+                                        ? "사전 불러오는 중..."
+                                        : "검색어 입력 (↑/↓, Enter · ESC)"
+                                }
+                                className="
+                                    w-full input input-bordered h-[46px]
+                                    text-[16px] md:text-[17px]
+                                    rounded-2xl px-4
+                                    focus:outline-none shadow-sm
+                                "
+                                onKeyDown={(e) => {
+                                    if (e.key === "ArrowDown") {
+                                        e.preventDefault();
+                                        setActiveIndex((i) =>
+                                            Math.min(
+                                                i + 1,
+                                                results.length - 1
+                                            )
+                                        );
+                                    } else if (e.key === "ArrowUp") {
+                                        e.preventDefault();
+                                        setActiveIndex((i) =>
+                                            Math.max(i - 1, 0)
+                                        );
+                                    } else if (
+                                        e.key === "Enter" &&
+                                        results[activeIndex]
+                                    ) {
+                                        e.preventDefault();
+                                        selectAndNavigate(
+                                            results[activeIndex]
+                                        );
                                     }
-                                    className="input input-bordered w-full text-[16px] md:text-[18px] px-4 h-[42px] rounded-[12px] focus:outline-none"
-                                />
-                            </div>
+                                }}
+                            />
 
+                            {/* 결과 드롭다운 */}
                             {(q.trim() || results.length > 0) && (
                                 <div
                                     className="
-                                        absolute left-0 right-0 top-[46px] z-[99999]
-                                        border border-base-300 bg-base-100 shadow-xl
-                                        max-h-[220px]
-                                        overflow-y-auto overflow-x-hidden
-                                        rounded-[12px]
+                                        absolute left-0 right-0 top-[50px]
+                                        bg-base-100/95 backdrop-blur-xl
+                                        border border-base-300
+                                        shadow-xl rounded-2xl
+                                        max-h-[240px] overflow-y-auto
+                                        p-2 z-[99999]
                                     "
                                 >
                                     {results.length === 0 ? (
@@ -290,24 +346,39 @@ export default function Navbar() {
                                             검색 결과가 없습니다.
                                         </div>
                                     ) : (
-                                        <ul className="p-2">
+                                        <ul>
                                             {results.map((r, idx) => (
                                                 <li key={r.id}>
                                                     <button
-                                                        className={`w-full text-left p-3 rounded-[10px] transition ${
-                                                            idx === activeIndex
+                                                        className={`
+                                                            w-full text-left px-4 py-3
+                                                            rounded-xl
+                                                            ${
+                                                            idx ===
+                                                            activeIndex
                                                                 ? "bg-base-200"
                                                                 : "hover:bg-base-200"
-                                                        }`}
-                                                        onMouseEnter={() => setActiveIndex(idx)}
-                                                        onClick={() => selectAndNavigate(r)}
+                                                        }
+                                                        `}
+                                                        onMouseEnter={() =>
+                                                            setActiveIndex(
+                                                                idx
+                                                            )
+                                                        }
+                                                        onClick={() =>
+                                                            selectAndNavigate(
+                                                                r
+                                                            )
+                                                        }
                                                     >
                                                         <div className="text-[16px] font-semibold">
                                                             {r.title}
                                                         </div>
                                                         {r.description && (
-                                                            <div className="text-[13px] opacity-80 mt-1">
-                                                                {r.description}
+                                                            <div className="text-[13px] opacity-70 mt-1">
+                                                                {
+                                                                    r.description
+                                                                }
                                                             </div>
                                                         )}
                                                     </button>
@@ -319,6 +390,7 @@ export default function Navbar() {
                             )}
                         </div>
                     ) : (
+                        /* 일반 메뉴 */
                         <ul className="menu menu-horizontal gap-4 text-[18px] md:text-[20px] font-semibold">
                             <li>
                                 <Link to="/ide" className={linkClass("/ide")}>
@@ -326,7 +398,10 @@ export default function Navbar() {
                                 </Link>
                             </li>
                             <li>
-                                <Link to="/dictionary" className={linkClass("/dictionary")}>
+                                <Link
+                                    to="/dictionary"
+                                    className={linkClass("/dictionary")}
+                                >
                                     사전
                                 </Link>
                             </li>
@@ -336,7 +411,10 @@ export default function Navbar() {
                                 </Link>
                             </li>
                             <li>
-                                <Link to="/stats" className={linkClass("/stats")}>
+                                <Link
+                                    to="/stats"
+                                    className={linkClass("/stats")}
+                                >
                                     학습관리
                                 </Link>
                             </li>
@@ -344,34 +422,26 @@ export default function Navbar() {
                     )}
                 </div>
 
-                {/* 오른쪽: 검색 버튼 */}
+                {/* 오른쪽 검색 버튼 */}
                 <div className="navbar-end gap-2">
                     {!isSearching && (
                         <button
-                            type="button"
-                            tabIndex={0}
                             onClick={() => setIsSearching(true)}
                             className="
                                 flex items-center justify-center
-                                w-[56px] h-[56px]
-                                bg-transparent
-                                border-none
-                                outline-none
-                                cursor-pointer
-                                hover:bg-transparent
-                                active:bg-transparent
-                                focus:bg-transparent
-                                focus:outline-none
-                                shadow-none
+                                w-[46px] h-[46px]
+                                rounded-full bg-base-200/70
+                                hover:bg-base-300/70
+                                transition
                             "
                         >
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
+                                stroke="currentColor"
+                                strokeWidth="2"
                                 fill="none"
                                 viewBox="0 0 24 24"
-                                strokeWidth={2}
-                                stroke="currentColor"
-                                className="w-[30px] h-[30px]"
+                                className="w-[22px] h-[22px] opacity-80"
                             >
                                 <path
                                     strokeLinecap="round"
