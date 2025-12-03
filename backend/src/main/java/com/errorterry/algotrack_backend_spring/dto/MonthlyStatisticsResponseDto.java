@@ -3,6 +3,8 @@ package com.errorterry.algotrack_backend_spring.dto;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.util.List;
+
 @Getter
 @Builder
 public class MonthlyStatisticsResponseDto {
@@ -12,5 +14,8 @@ public class MonthlyStatisticsResponseDto {
 
     // 월 통계를 기반으로 한 알고리즘/난이도 조언
     private StatisticsMonthlyAdviceResponseDto advice;
+
+    // 요일별 평균 풀이 수 통계
+    private List<StatisticsWeekdayStatDto> weekdayStats;
 
 }
