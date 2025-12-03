@@ -5,6 +5,7 @@ import com.errorterry.algotrack_backend_spring.domain.SolvedLog;
 import com.errorterry.algotrack_backend_spring.dto.MonthlyStatisticsResponseDto;
 import com.errorterry.algotrack_backend_spring.dto.StatisticsMonthlyAdviceResponseDto;
 import com.errorterry.algotrack_backend_spring.dto.StatisticsMonthlySummaryResponseDto;
+import com.errorterry.algotrack_backend_spring.dto.StatisticsWeekdayStatDto;
 import com.errorterry.algotrack_backend_spring.repository.AlgorithmRepository;
 import com.errorterry.algotrack_backend_spring.repository.SolvedLogStatisticsRepository;
 import lombok.RequiredArgsConstructor;
@@ -63,6 +64,17 @@ public class StatisticsService {
                 .mapToDouble(log -> tierScore(log.getProblemTier()))
                 .average()
                 .orElse(0.0);
+    }
+
+    // 요일 라벨
+    private static final String[] WEEKDAY_LABELS = {
+            "일", "월", "화", "수", "목", "금", "토"
+    };
+
+    // LocalData -> 0=일, 1=월, ..., 6=토 인덱스 변환
+    private int toWeekdayIndex(LocalDate date) {
+        int v = date.getDayOfWeek().getValue();
+        return v % 7;   // 1~6 -> 그대로, 7(SUN) -> 0
     }
 
 
@@ -145,14 +157,25 @@ public class StatisticsService {
                 .topProblemTierSolvedCount(topProblemTierSolvedCount)
                 .build();
 
+        // ===== 해당 월 solved_log 전체 조회 =====
+        List<SolvedLog> currentMonthLogs =
+                solvedLogStatisticsRepository.findByUserUserIdAndSolvedDateBetween(
+                        userId, monthStart, monthEnd
+                );
+
         // ===== 조언(Advice) 계산 =====
         StatisticsMonthlyAdviceResponseDto advice =
                 buildAdvice(userId, yearMonth, monthStart, monthEnd, totalSolved);
+
+        // ===== 요일별 평균 풀이 수 통계 계산 =====
+        List<StatisticsWeekdayStatDto> weekdayStats =
+                buildWeekdayStats(yearMonth, currentMonthLogs);
 
         // ===== summary + advice 묶어서 최종 DTO 반환 =====
         return MonthlyStatisticsResponseDto.builder()
                 .summary(summary)
                 .advice(advice)
+                .weekdayStats(weekdayStats)
                 .build();
     }
 
@@ -328,6 +351,56 @@ public class StatisticsService {
                 .difficultyWeeklyTrendStreakWeeks(weeklyTrendStreak)
                 .difficultyMonthlyTrend(monthlyTrend)
                 .build();
+    }
+
+    // 요일별 평균 풀이 수 통계 빌더
+    private List<StatisticsWeekdayStatDto> buildWeekdayStats(YearMonth yearMonth, List<SolvedLog> currentMonthLogs) {
+
+        int[] dayCount = new int[7];        // 해당 월에서 요일별 등장 횟수 (캘린더 기준)
+        long[] solvedCount = new long[7];   // 해당 월에서 요일별 풀이 수 합계
+
+        int lengthOfMonth = yearMonth.lengthOfMonth();
+
+        // 1) 캘린더 기준 dayCount 계산 (사용자가 풀었는지와 무관)
+        for (int day = 1; day <= lengthOfMonth; day++) {
+            LocalDate date = yearMonth.atDay(day);
+            int idx = toWeekdayIndex(date); // 0=일, 1=월, ... 6=토
+            dayCount[idx]++;
+        }
+
+        // 2) solved_log 기준 solvedCount 계산
+        if (currentMonthLogs != null) {
+            for (SolvedLog log : currentMonthLogs) {
+                int idx = toWeekdayIndex(log.getSolvedDate());
+                solvedCount[idx]++;
+            }
+        }
+
+        // 3) avgSolved 계산 + DTO 생성
+        List<StatisticsWeekdayStatDto> stats = new ArrayList<>();
+
+        // 프론트 예시와 맞추기 위해: 월(1)~토(6), 마지막에 일(0)
+        int[] order = {1, 2, 3, 4, 5, 6, 0};
+
+        for (int idx : order) {
+            int days = dayCount[idx];
+            long solves = solvedCount[idx];
+
+            double avg = 0.0;
+            if (days > 0) {
+                avg = (double) solves / (double) days;
+            }
+
+            StatisticsWeekdayStatDto dto = StatisticsWeekdayStatDto.builder()
+                    .dayOfWeek(idx)
+                    .label(WEEKDAY_LABELS[idx])
+                    .avgSolved(avg)
+                    .build();
+
+            stats.add(dto);
+        }
+
+        return stats;
     }
 
 
